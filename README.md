@@ -21,3 +21,7 @@ cd backend
 npm install
 npm run dev
 ```
+
+## 서버에 배포 하는 방법
+실제 서비스(Fly.io)에 반영하고 싶을 때만, Codespaces 터미널에서 fly deploy 라는 명령어 한 줄을 치면 돼요
+Codespaces = 개발실습실 / GitHub = 코드 저장 / Fly.io = 실제 서비스가 돌아가는 곳이고, "배포한다"는 건 그냥 fly deploy 한 줄 치는 거예요.
