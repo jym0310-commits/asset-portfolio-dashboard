@@ -296,7 +296,6 @@ function renderGrowthChart(rows) {
         { label: CATEGORY_LABELS.stock, data: rows.map((r) => r.stock_total), backgroundColor: CATEGORY_COLORS.stock },
         { label: CATEGORY_LABELS.realEstate, data: rows.map((r) => r.real_estate_total), backgroundColor: CATEGORY_COLORS.realEstate },
         { label: CATEGORY_LABELS.crypto, data: rows.map((r) => r.crypto_total), backgroundColor: CATEGORY_COLORS.crypto },
-        { label: CATEGORY_LABELS.insurance, data: rows.map((r) => r.insurance_total), backgroundColor: CATEGORY_COLORS.insurance },
       ],
     },
     options: {
