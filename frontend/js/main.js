@@ -793,10 +793,22 @@ function openHoldingForm(row, defaultAssetType) {
   const assetType = isEdit ? row.asset_type : (defaultAssetType || 'domestic_stock');
   const today = new Date().toISOString().slice(0, 10);
 
+  const exchangeOptions = [
+    { value: '', label: '선택 안함' },
+    { value: 'NAS', label: 'NAS (나스닥)' },
+    { value: 'NYS', label: 'NYS (뉴욕)' },
+    { value: 'AMS', label: 'AMS (아멕스)' },
+  ];
+  const currentExchange = isEdit ? (row.exchange || '') : '';
+
+  const currencyOptions = ['KRW', 'USD'];
+  const currentCurrency = isEdit ? row.currency : (assetType === 'overseas_stock' ? 'USD' : 'KRW');
+
   const fieldsHtml = `
     <div class="form-field">
       <label>종목코드 (symbol)</label>
       <input name="symbol" required value="${isEdit ? row.symbol : ''}" ${isEdit ? 'readonly' : ''}>
+      <p class="field-hint" id="symbolHint"></p>
     </div>
     <div class="form-field">
       <label>종목명</label>
@@ -804,7 +816,7 @@ function openHoldingForm(row, defaultAssetType) {
     </div>
     <div class="form-field">
       <label>구분</label>
-      <select name="asset_type" ${isEdit ? 'disabled' : ''}>
+      <select name="asset_type" id="assetTypeSelect" ${isEdit ? 'disabled' : ''}>
         <option value="domestic_stock" ${assetType === 'domestic_stock' ? 'selected' : ''}>국내 주식</option>
         <option value="overseas_stock" ${assetType === 'overseas_stock' ? 'selected' : ''}>해외 주식</option>
         <option value="crypto" ${assetType === 'crypto' ? 'selected' : ''}>코인</option>
@@ -823,8 +835,15 @@ function openHoldingForm(row, defaultAssetType) {
       <input name="institution" value="${isEdit ? (row.institution || '') : ''}">
     </div>
     <div class="form-field">
-      <label>해외거래소 코드 (해외주식만, 예: NAS/NYS/AMS)</label>
-      <input name="exchange" value="${isEdit ? (row.exchange || '') : ''}" placeholder="NAS">
+      <label>해외거래소 코드 (해외주식만)</label>
+      <select name="exchange" id="exchangeSelect">
+        ${exchangeOptions
+          .map(
+            (o) =>
+              `<option value="${o.value}" ${o.value === currentExchange ? 'selected' : ''}>${o.label}</option>`
+          )
+          .join('')}
+      </select>
     </div>
     <div class="form-field">
       <label>수량</label>
@@ -836,7 +855,11 @@ function openHoldingForm(row, defaultAssetType) {
     </div>
     <div class="form-field">
       <label>통화</label>
-      <input name="currency" required value="${isEdit ? row.currency : 'KRW'}">
+      <select name="currency" id="currencySelect" required>
+        ${currencyOptions
+          .map((c) => `<option value="${c}" ${c === currentCurrency ? 'selected' : ''}>${c}</option>`)
+          .join('')}
+      </select>
     </div>
   `;
 
@@ -874,6 +897,25 @@ function openHoldingForm(row, defaultAssetType) {
 
     refreshAll();
   });
+
+  // 종목 구분(국내/해외/코인)에 따라 종목코드 입력 힌트를 다르게 보여줍니다.
+  const assetTypeSelect = document.getElementById('assetTypeSelect');
+  const symbolHint = document.getElementById('symbolHint');
+
+  function updateSymbolHint() {
+    const v = assetTypeSelect.value;
+    if (v === 'domestic_stock') {
+      symbolHint.textContent = '국내 주식: 종목코드 6자리 (예: 005930)';
+    } else if (v === 'overseas_stock') {
+      symbolHint.textContent = '해외 주식: 티커 심볼 (예: GOOGL, AAPL)';
+    } else if (v === 'crypto') {
+      symbolHint.textContent =
+        '코인: "KRW-" 접두사를 꼭 붙여주세요 (예: KRW-BTC, KRW-ETH). "BTC"만 입력하면 시세를 못 가져와요.';
+    }
+  }
+
+  updateSymbolHint();
+  assetTypeSelect.addEventListener('change', updateSymbolHint);
 }
 
 async function deleteHolding(id) {
