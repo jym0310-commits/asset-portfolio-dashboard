@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- 포트폴리오 공유 관계: owner_user_id(원 소유자)의 데이터를 shared_with_user_id가 보고 수정할 수 있게 허용
+-- 포트폴리오 공유 관계
 CREATE TABLE IF NOT EXISTS portfolio_shares (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS holdings (
   institution TEXT,
   exchange TEXT,
   purchase_date TEXT,
+  purchase_fx_rate REAL,
   quantity REAL NOT NULL DEFAULT 0,
   avg_price REAL NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'KRW',
@@ -66,7 +67,7 @@ CREATE TABLE IF NOT EXISTS holdings (
   UNIQUE(user_id, symbol, asset_type, institution)
 );
 
--- 일별 시세 히스토리 (시장 공통 정보라 사용자별로 나누지 않음)
+-- 일별 시세 히스토리
 CREATE TABLE IF NOT EXISTS price_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   symbol TEXT NOT NULL,
@@ -91,7 +92,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- 일별 총자산 스냅샷 (사용자별로 하루에 하나씩)
+-- 일별 총자산 스냅샷
 CREATE TABLE IF NOT EXISTS net_worth_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

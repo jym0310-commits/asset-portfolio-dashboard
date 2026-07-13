@@ -46,31 +46,33 @@ function seedRealEstate(userId) {
 }
 
 function seedHoldingsAndPrices(userId) {
+  // [symbol, name, asset_type, sector, institution, exchange, purchase_date, purchase_fx_rate, quantity, avg_price(평단가/원가), currency, current_price]
   const rows = [
-    ['402970', 'ACE 미국배당다우', 'domestic_stock', '배당주', '한국투자증권', null, '2025-08-20', 5380, 11744, 'KRW', 16020],
-    ['GOOGL', '알파벳 A', 'overseas_stock', '기술주', '한국투자증권', 'NAS', '2025-09-15', 68, 314.75, 'USD', 359.91],
-    ['360750', 'TIGER 미국S&P5', 'domestic_stock', 'S&P500', '한국투자증권', null, '2025-07-10', 1061, 24773, 'KRW', 28605],
-    ['005930', '삼성전자', 'domestic_stock', '기술주', '한국투자증권', null, '2024-11-05', 70, 58553, 'KRW', 309500],
-    ['PFE', '화이자', 'overseas_stock', '배당주', '미래에셋', 'NYS', '2025-10-01', 420, 26.25, 'USD', 24.32],
-    ['KRW-BTC', '비트코인', 'crypto', null, '업비트', null, '2025-12-01', 0.05, 91946420, 'KRW', 91946420],
+    ['402970', 'ACE 미국배당다우', 'domestic_stock', '배당주', '한국투자증권', null, '2025-08-20', null, 5380, 11744, 'KRW', 16020],
+    ['GOOGL', '알파벳 A', 'overseas_stock', '기술주', '한국투자증권', 'NAS', '2025-09-15', 1340, 68, 314.75, 'USD', 359.91],
+    ['360750', 'TIGER 미국S&P5', 'domestic_stock', 'S&P500', '한국투자증권', null, '2025-07-10', null, 1061, 24773, 'KRW', 28605],
+    ['005930', '삼성전자', 'domestic_stock', '기술주', '한국투자증권', null, '2024-11-05', null, 70, 58553, 'KRW', 309500],
+    ['PFE', '화이자', 'overseas_stock', '배당주', '미래에셋', 'NYS', '2025-10-01', 1355, 420, 26.25, 'USD', 24.32],
+    ['KRW-BTC', '비트코인', 'crypto', null, '업비트', null, '2025-12-01', null, 0.05, 91946420, 'KRW', 91946420],
   ];
 
   const insertHolding = db.prepare(
-    `INSERT INTO holdings (user_id, symbol, name, asset_type, sector, institution, exchange, purchase_date, quantity, avg_price, currency)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO holdings (user_id, symbol, name, asset_type, sector, institution, exchange, purchase_date, purchase_fx_rate, quantity, avg_price, currency)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   const insertPrice = db.prepare(
     `INSERT OR IGNORE INTO price_history (symbol, asset_type, date, close_price, volume)
      VALUES (?, ?, ?, ?, ?)`
   );
 
-  rows.forEach(([symbol, name, assetType, sector, institution, exchange, purchaseDate, qty, avgPrice, currency, currentPrice]) => {
-    insertHolding.run(userId, symbol, name, assetType, sector, institution, exchange, purchaseDate, qty, avgPrice, currency);
+  rows.forEach(([symbol, name, assetType, sector, institution, exchange, purchaseDate, purchaseFxRate, qty, avgPrice, currency, currentPrice]) => {
+    insertHolding.run(userId, symbol, name, assetType, sector, institution, exchange, purchaseDate, purchaseFxRate, qty, avgPrice, currency);
     insertPrice.run(symbol, assetType, today, currentPrice, null);
   });
 }
 
 function seedTransactions(userId) {
+  // 캡처 화면의 "매도 실현 손익 2026년 -434,000원"을 재현하기 위한 샘플 매도 내역
   const stmt = db.prepare(
     `INSERT INTO transactions (user_id, symbol, asset_type, trade_type, quantity, price, realized_pnl, trade_date)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -79,6 +81,7 @@ function seedTransactions(userId) {
 }
 
 function seedNetWorthHistory(userId) {
+  // 최근 30일치 자산 성장 추이 샘플 (테스트용 합성 데이터)
   const stmt = db.prepare(
     `INSERT OR IGNORE INTO net_worth_snapshots
      (user_id, snapshot_date, cash_total, real_estate_total, crypto_total, stock_total, insurance_total, total)
@@ -96,7 +99,7 @@ function seedNetWorthHistory(userId) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().slice(0, 10);
-    const ratio = 1 - i / days / 3;
+    const ratio = 1 - i / days / 3; // 과거로 갈수록 자산이 조금 더 적었다고 가정한 단순 합성값
     stmt.run(
       userId,
       dateStr,

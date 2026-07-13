@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../db');
 const { toKRW } = require('../config');
+const { getCachedUsdKrwRate } = require('../services/exchangeRateService');
 const { refreshAllPrices, snapshotNetWorth } = require('../services/priceRefreshService');
 const { requireAuth } = require('../middleware/requireAuth');
 const { resolveOwner } = require('../middleware/resolveOwner');
@@ -45,8 +46,14 @@ function getHoldingsWithCurrent(userId, filters = {}) {
     const currentTotal = currentPrice * h.quantity;
     const profit = currentTotal - costTotal;
     const profitRate = costTotal > 0 ? (profit / costTotal) * 100 : 0;
+
+    // 현재 평가금액: 지금(실시간) 환율로 환산
     const currentTotalKRW = toKRW(currentTotal, h.currency);
-    const costTotalKRW = toKRW(costTotal, h.currency);
+    // 매수 원가: 매수 시점에 저장해둔 환율로 환산 (없으면 현재 환율로 대체)
+    const costTotalKRW =
+      h.currency === 'USD'
+        ? costTotal * (h.purchase_fx_rate || getCachedUsdKrwRate())
+        : toKRW(costTotal, h.currency);
 
     return {
       id: h.id,
@@ -57,6 +64,7 @@ function getHoldingsWithCurrent(userId, filters = {}) {
       institution: h.institution,
       exchange: h.exchange,
       purchase_date: h.purchase_date,
+      purchase_fx_rate: h.purchase_fx_rate,
       currency: h.currency,
       quantity: h.quantity,
       avg_price: h.avg_price,
@@ -102,6 +110,10 @@ router.post('/', (req, res) => {
      VALUES (?, ?, ?, 'buy', ?, ?, ?)`
   );
 
+  // 해외주식(USD)만 매수시점 환율을 기록합니다. 국내주식/코인(KRW)은 환율 환산이 필요없어 NULL로 둡니다.
+  const currentFxRate = getCachedUsdKrwRate();
+  const isUsd = (currency || 'KRW') === 'USD';
+
   if (existing) {
     // 같은 종목 + 같은 증권사 -> 수량 합산 + 평단가 가중평균 재계산
     const newQuantity = existing.quantity + qty;
@@ -110,16 +122,30 @@ router.post('/', (req, res) => {
         ? (existing.quantity * existing.avg_price + qty * price) / newQuantity
         : existing.avg_price;
 
+    // 매수시점 환율도 원가(USD 금액) 기준 가중평균으로 재계산합니다.
+    let newFxRate = existing.purchase_fx_rate;
+    if (existing.currency === 'USD') {
+      const existingCostUsd = existing.quantity * existing.avg_price;
+      const newCostUsd = qty * price;
+      const totalCostUsd = existingCostUsd + newCostUsd;
+      newFxRate =
+        totalCostUsd > 0
+          ? (existingCostUsd * (existing.purchase_fx_rate || currentFxRate) + newCostUsd * currentFxRate) /
+            totalCostUsd
+          : existing.purchase_fx_rate;
+    }
+
     db.prepare(
       `UPDATE holdings
        SET quantity = ?,
            avg_price = ?,
+           purchase_fx_rate = ?,
            sector = COALESCE(sector, ?),
            exchange = COALESCE(exchange, ?),
            purchase_date = COALESCE(purchase_date, ?),
            updated_at = datetime('now')
        WHERE id = ?`
-    ).run(newQuantity, newAvgPrice, sector || null, exchange || null, buyDate, existing.id);
+    ).run(newQuantity, newAvgPrice, newFxRate, sector || null, exchange || null, buyDate, existing.id);
 
     insertBuyTx.run(userId, symbol, asset_type, qty, price, buyDate);
     snapshotNetWorth(userId);
@@ -134,8 +160,8 @@ router.post('/', (req, res) => {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO holdings (user_id, symbol, name, asset_type, sector, institution, exchange, purchase_date, quantity, avg_price, currency)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO holdings (user_id, symbol, name, asset_type, sector, institution, exchange, purchase_date, purchase_fx_rate, quantity, avg_price, currency)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     const result = stmt.run(
       userId,
@@ -146,6 +172,7 @@ router.post('/', (req, res) => {
       institution || null,
       exchange || null,
       buyDate,
+      isUsd ? currentFxRate : null,
       qty,
       price,
       currency || 'KRW'

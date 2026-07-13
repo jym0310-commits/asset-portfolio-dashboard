@@ -2,12 +2,16 @@ const { db } = require('../db');
 const { getDomesticPrice, getOverseasPrice } = require('./kisApi');
 const { getTickerPrices } = require('./upbitApi');
 const { toKRW } = require('../config');
+const { refreshExchangeRate } = require('./exchangeRateService');
 
 // 모든 사용자의 보유중인 종목(holdings)을 대상으로 KIS(주식) + Upbit(코인) 시세를 갱신합니다.
 // price_history는 사용자별로 나뉘지 않는 공통 시세 데이터라, 한 번만 갱신하면 모든 사용자가 혜택을 봅니다.
 async function refreshAllPrices() {
   const today = new Date().toISOString().slice(0, 10);
   const results = [];
+
+  // 환율도 이 시점에 최신으로 갱신 (실패해도 캐시된 이전 값으로 계속 동작)
+  await refreshExchangeRate();
 
   const upsertPrice = db.prepare(
     `INSERT INTO price_history (symbol, asset_type, date, close_price, volume)
