@@ -444,7 +444,10 @@ async function loadHoldingsTable(filters = {}) {
         const sign = r.profit_rate >= 0 ? '+' : '';
         return `<tr>
           <td>${r.name}<span class="symbol-sub">${r.symbol}${r.institution ? ' · ' + r.institution : ''}</span></td>
-          <td class="${profitClass}">${sign}${r.profit_rate}%</td>
+          <td class="${profitClass}">
+            ${sign}${r.profit_rate}%
+            <span class="profit-amount">${sign}${formatKRW(r.profit_krw)}원</span>
+          </td>
           <td>${formatPrice(r.current_price, r.currency)}</td>
           <td>${formatKRW(r.current_total_krw)}원</td>
           <td>${r.quantity.toLocaleString('ko-KR')}주</td>

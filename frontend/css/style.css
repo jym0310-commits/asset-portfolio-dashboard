@@ -628,3 +628,11 @@ td .symbol-sub {
     padding: 20px;
   }
 }
+
+.profit-amount {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.85;
+  margin-top: 2px;
+}

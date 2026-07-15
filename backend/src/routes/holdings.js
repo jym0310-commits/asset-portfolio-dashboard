@@ -75,6 +75,7 @@ function getHoldingsWithCurrent(userId, filters = {}) {
       current_total_krw: Math.round(currentTotalKRW),
       cost_total_krw: Math.round(costTotalKRW),
       profit: Math.round(profit),
+      profit_krw: Math.round(currentTotalKRW - costTotalKRW),
       profit_rate: Number(profitRate.toFixed(2)),
     };
   });
