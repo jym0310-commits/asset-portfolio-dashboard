@@ -35,6 +35,26 @@ function formatPrice(value, currency) {
   return `${formatKRW(value)}원`;
 }
 
+// 사용자가 입력한 텍스트(계좌명, 종목명 등)를 화면에 그릴 때 스크립트가 실행되지 않도록 이스케이프합니다.
+// 공유 기능이 있어서, 다른 사람이 입력한 이름이 내 화면에도 그려질 수 있어 특히 중요합니다.
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// 각 테이블의 행 데이터를 id로 찾아쓰기 위한 캐시입니다.
+// (수정/매도 버튼에서 데이터를 JSON으로 통째로 onclick 속성에 박아넣으면
+//  이름에 작은따옴표가 섞였을 때 속성이 깨지면서 스크립트가 삽입될 수 있어, 이 방식으로 피합니다.)
+let cashRowCache = {};
+let realEstateRowCache = {};
+let cryptoRowCache = {};
+let holdingsRowCache = {};
+
 /* ---------------------------------------------------------
    차트 인스턴스 (재렌더링 시 destroy 후 재생성하기 위해 보관)
 --------------------------------------------------------- */
@@ -326,6 +346,11 @@ async function loadCashTable() {
     if (!res.ok) throw new Error('cash API 응답 오류');
     const rows = await res.json();
 
+    cashRowCache = {};
+    rows.forEach((r) => {
+      cashRowCache[r.id] = r;
+    });
+
     const tbody = document.querySelector('#cashTable tbody');
     if (rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" class="loading-text">데이터가 없습니다.</td></tr>';
@@ -334,11 +359,11 @@ async function loadCashTable() {
     tbody.innerHTML = rows
       .map(
         (r) => `<tr>
-          <td>${r.account_name}</td>
-          <td>${r.currency}</td>
+          <td>${escapeHtml(r.account_name)}</td>
+          <td>${escapeHtml(r.currency)}</td>
           <td>${formatKRW(r.balance)}</td>
           <td class="action-cell">
-            <button class="btn btn-sm btn-edit" onclick='openCashForm(${JSON.stringify(r)})'>수정</button>
+            <button class="btn btn-sm btn-edit" onclick="openCashForm(cashRowCache[${r.id}])">수정</button>
             <button class="btn btn-sm btn-danger" onclick="deleteCash(${r.id})">삭제</button>
           </td>
         </tr>`
@@ -355,6 +380,11 @@ async function loadRealEstateTable() {
     if (!res.ok) throw new Error('real-estate API 응답 오류');
     const rows = await res.json();
 
+    realEstateRowCache = {};
+    rows.forEach((r) => {
+      realEstateRowCache[r.id] = r;
+    });
+
     const tbody = document.querySelector('#realEstateTable tbody');
     if (rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" class="loading-text">데이터가 없습니다.</td></tr>';
@@ -363,11 +393,11 @@ async function loadRealEstateTable() {
     tbody.innerHTML = rows
       .map(
         (r) => `<tr>
-          <td>${r.item_name}</td>
-          <td>${r.currency}</td>
+          <td>${escapeHtml(r.item_name)}</td>
+          <td>${escapeHtml(r.currency)}</td>
           <td>${formatKRW(r.balance)}</td>
           <td class="action-cell">
-            <button class="btn btn-sm btn-edit" onclick='openRealEstateForm(${JSON.stringify(r)})'>수정</button>
+            <button class="btn btn-sm btn-edit" onclick="openRealEstateForm(realEstateRowCache[${r.id}])">수정</button>
             <button class="btn btn-sm btn-danger" onclick="deleteRealEstate(${r.id})">삭제</button>
           </td>
         </tr>`
@@ -384,6 +414,11 @@ async function loadCryptoTable() {
     if (!res.ok) throw new Error('holdings(crypto) API 응답 오류');
     const rows = await res.json();
 
+    cryptoRowCache = {};
+    rows.forEach((r) => {
+      cryptoRowCache[r.id] = r;
+    });
+
     const tbody = document.querySelector('#cryptoTable tbody');
     if (rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" class="loading-text">데이터가 없습니다.</td></tr>';
@@ -392,12 +427,12 @@ async function loadCryptoTable() {
     tbody.innerHTML = rows
       .map(
         (r) => `<tr>
-          <td>${r.name}</td>
-          <td>${r.currency}</td>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${escapeHtml(r.currency)}</td>
           <td>${formatKRW(r.current_total_krw)}</td>
           <td class="action-cell">
-            <button class="btn btn-sm btn-primary" onclick='openSellForm(${JSON.stringify(r)})'>매도</button>
-            <button class="btn btn-sm btn-edit" onclick='openHoldingForm(${JSON.stringify(r)})'>수정</button>
+            <button class="btn btn-sm btn-primary" onclick="openSellForm(cryptoRowCache[${r.id}])">매도</button>
+            <button class="btn btn-sm btn-edit" onclick="openHoldingForm(cryptoRowCache[${r.id}])">수정</button>
             <button class="btn btn-sm btn-danger" onclick="deleteHolding(${r.id})">삭제</button>
           </td>
         </tr>`
@@ -432,6 +467,11 @@ async function loadHoldingsTable(filters = {}) {
 
     rows.sort((a, b) => b.current_total_krw - a.current_total_krw);
 
+    holdingsRowCache = {};
+    rows.forEach((r) => {
+      holdingsRowCache[r.id] = r;
+    });
+
     const tbody = document.querySelector('#holdingsTable tbody');
     if (rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="loading-text">보유 종목이 없습니다.</td></tr>';
@@ -443,7 +483,7 @@ async function loadHoldingsTable(filters = {}) {
         const profitClass = r.profit_rate >= 0 ? 'value-up' : 'value-down';
         const sign = r.profit_rate >= 0 ? '+' : '';
         return `<tr>
-          <td>${r.name}<span class="symbol-sub">${r.symbol}${r.institution ? ' · ' + r.institution : ''}</span></td>
+          <td>${escapeHtml(r.name)}<span class="symbol-sub">${escapeHtml(r.symbol)}${r.institution ? ' · ' + escapeHtml(r.institution) : ''}</span></td>
           <td class="${profitClass}">
             ${sign}${r.profit_rate}%
             <span class="profit-amount">${sign}${formatKRW(r.profit_krw)}원</span>
@@ -452,8 +492,8 @@ async function loadHoldingsTable(filters = {}) {
           <td>${formatKRW(r.current_total_krw)}원</td>
           <td>${r.quantity.toLocaleString('ko-KR')}주</td>
           <td class="action-cell">
-            <button class="btn btn-sm btn-primary" onclick='openSellForm(${JSON.stringify(r)})'>매도</button>
-            <button class="btn btn-sm btn-edit" onclick='openHoldingForm(${JSON.stringify(r)})'>수정</button>
+            <button class="btn btn-sm btn-primary" onclick="openSellForm(holdingsRowCache[${r.id}])">매도</button>
+            <button class="btn btn-sm btn-edit" onclick="openHoldingForm(holdingsRowCache[${r.id}])">수정</button>
             <button class="btn btn-sm btn-danger" onclick="deleteHolding(${r.id})">삭제</button>
           </td>
         </tr>`;
@@ -703,15 +743,15 @@ function openCashForm(row) {
   const fieldsHtml = `
     <div class="form-field">
       <label>계좌명</label>
-      <input name="account_name" required value="${isEdit ? row.account_name : ''}">
+      <input name="account_name" required value="${isEdit ? escapeHtml(row.account_name) : ''}">
     </div>
     <div class="form-field">
       <label>기관</label>
-      <input name="institution" value="${isEdit ? (row.institution || '') : ''}">
+      <input name="institution" value="${isEdit ? escapeHtml(row.institution || '') : ''}">
     </div>
     <div class="form-field">
       <label>통화</label>
-      <input name="currency" required value="${isEdit ? row.currency : 'KRW'}">
+      <input name="currency" required value="${isEdit ? escapeHtml(row.currency) : 'KRW'}">
     </div>
     <div class="form-field">
       <label>잔액</label>
@@ -751,11 +791,11 @@ function openRealEstateForm(row) {
   const fieldsHtml = `
     <div class="form-field">
       <label>항목명</label>
-      <input name="item_name" required value="${isEdit ? row.item_name : ''}">
+      <input name="item_name" required value="${isEdit ? escapeHtml(row.item_name) : ''}">
     </div>
     <div class="form-field">
       <label>통화</label>
-      <input name="currency" required value="${isEdit ? row.currency : 'KRW'}">
+      <input name="currency" required value="${isEdit ? escapeHtml(row.currency) : 'KRW'}">
     </div>
     <div class="form-field">
       <label>잔액</label>
@@ -809,12 +849,12 @@ function openHoldingForm(row, defaultAssetType) {
   const fieldsHtml = `
     <div class="form-field">
       <label>종목코드 (symbol)</label>
-      <input name="symbol" required value="${isEdit ? row.symbol : ''}" ${isEdit ? 'readonly' : ''}>
+      <input name="symbol" required value="${isEdit ? escapeHtml(row.symbol) : ''}" ${isEdit ? 'readonly' : ''}>
       <p class="field-hint" id="symbolHint"></p>
     </div>
     <div class="form-field">
       <label>종목명</label>
-      <input name="name" required value="${isEdit ? row.name : ''}">
+      <input name="name" required value="${isEdit ? escapeHtml(row.name) : ''}">
     </div>
     <div class="form-field">
       <label>구분</label>
@@ -830,11 +870,11 @@ function openHoldingForm(row, defaultAssetType) {
     </div>
     <div class="form-field">
       <label>섹터 (선택, 예: 배당주/기술주/S&P500)</label>
-      <input name="sector" value="${isEdit ? (row.sector || '') : ''}">
+      <input name="sector" value="${isEdit ? escapeHtml(row.sector || '') : ''}">
     </div>
     <div class="form-field">
       <label>증권사/거래소 (한국투자증권 등)</label>
-      <input name="institution" value="${isEdit ? (row.institution || '') : ''}">
+      <input name="institution" value="${isEdit ? escapeHtml(row.institution || '') : ''}">
     </div>
     <div class="form-field">
       <label>해외거래소 코드 (해외주식만)</label>
@@ -942,7 +982,7 @@ async function loadPortfolioSwitcher() {
     const options = [`<option value="me">내 포트폴리오</option>`];
     shared.forEach((s) => {
       options.push(
-        `<option value="${s.owner_id}">${s.display_name || s.email}님의 포트폴리오</option>`
+        `<option value="${s.owner_id}">${escapeHtml(s.display_name || s.email)}님의 포트폴리오</option>`
       );
     });
     select.innerHTML = options.join('');
@@ -1019,7 +1059,7 @@ async function renderShareList() {
     container.innerHTML = rows
       .map(
         (r) => `<div class="share-item">
-          <span>${r.display_name || r.email}</span>
+          <span>${escapeHtml(r.display_name || r.email)}</span>
           <button type="button" class="btn btn-sm btn-danger" onclick="revokeShare(${r.id})">취소</button>
         </div>`
       )
@@ -1044,7 +1084,7 @@ function openSellForm(row) {
   const fieldsHtml = `
     <div class="form-field">
       <label>종목</label>
-      <input value="${row.name} (${row.symbol})" disabled>
+      <input value="${escapeHtml(row.name)} (${escapeHtml(row.symbol)})" disabled>
     </div>
     <div class="form-field">
       <label>보유 수량</label>
@@ -1055,7 +1095,7 @@ function openSellForm(row) {
       <input name="quantity" type="number" step="any" min="0" max="${row.quantity}" required value="${row.quantity}">
     </div>
     <div class="form-field">
-      <label>매도 단가 (${row.currency})</label>
+      <label>매도 단가 (${escapeHtml(row.currency)})</label>
       <input name="price" type="number" step="any" required value="${row.current_price}">
     </div>
     <div class="form-field">
@@ -1139,17 +1179,17 @@ function renderRefreshResults(results) {
     .map((r) => {
       if (r.status === 'ok') {
         return `<tr>
-          <td>${r.name}</td>
-          <td>${r.symbol}</td>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${escapeHtml(r.symbol)}</td>
           <td>${formatPrice(r.price, r.currency)}</td>
           <td class="value-up">성공</td>
         </tr>`;
       }
       return `<tr>
-        <td>${r.name}</td>
-        <td>${r.symbol}</td>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.symbol)}</td>
         <td>-</td>
-        <td class="value-down" title="${r.error || ''}">실패</td>
+        <td class="value-down" title="${escapeHtml(r.error || '')}">실패</td>
       </tr>`;
     })
     .join('');

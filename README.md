@@ -21,3 +21,7 @@ cd backend
 npm install
 npm run dev
 ```
+## 배포 방법
+git add .
+git commit -m "수정내용"
+git push
