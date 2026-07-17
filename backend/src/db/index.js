@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 
+// 배포 환경(Northflank 등)에서는 영구 저장 볼륨 경로(예: /data/data.sqlite)를
+// SQLITE_PATH 환경변수로 지정해서 씁니다. 지정 안 하면 기존처럼 로컬 파일을 씁니다.
 const DB_PATH = process.env.SQLITE_PATH || path.join(__dirname, '..', '..', 'data.sqlite');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
@@ -20,11 +22,19 @@ function ensureColumn(table, column, definition) {
 }
 
 function runMigrations() {
-  const tableExists = db
+  // holdings 테이블이 아직 없을 수도 있으니(최초 실행), 있을 때만 검사합니다.
+  const holdingsExists = db
     .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='holdings'`)
     .get();
-  if (tableExists) {
+  if (holdingsExists) {
     ensureColumn('holdings', 'purchase_fx_rate', 'REAL');
+  }
+
+  const usersExists = db
+    .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='users'`)
+    .get();
+  if (usersExists) {
+    ensureColumn('users', 'terms_agreed_at', 'TEXT');
   }
 }
 

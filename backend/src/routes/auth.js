@@ -5,13 +5,16 @@ const { db } = require('../db');
 
 // POST /api/auth/signup - 회원가입
 router.post('/signup', (req, res) => {
-  const { email, password, display_name } = req.body;
+  const { email, password, display_name, terms_agreed } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: '이메일과 비밀번호는 필수입니다.' });
   }
-  if (password.length < 4) {
-    return res.status(400).json({ error: '비밀번호는 4자 이상이어야 합니다.' });
+  if (password.length < 8) {
+    return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
+  }
+  if (terms_agreed !== true) {
+    return res.status(400).json({ error: '필수 약관(이용약관, 개인정보 수집·이용)에 동의해야 가입할 수 있습니다.' });
   }
 
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
@@ -21,7 +24,9 @@ router.post('/signup', (req, res) => {
 
   const passwordHash = bcrypt.hashSync(password, 10);
   const result = db
-    .prepare(`INSERT INTO users (email, password_hash, display_name) VALUES (?, ?, ?)`)
+    .prepare(
+      `INSERT INTO users (email, password_hash, display_name, terms_agreed_at) VALUES (?, ?, ?, datetime('now'))`
+    )
     .run(email, passwordHash, display_name || null);
 
   req.session.userId = result.lastInsertRowid;

@@ -254,6 +254,14 @@ td .symbol-sub {
   color: var(--text-dim);
 }
 
+.profit-amount {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -412,6 +420,12 @@ td .symbol-sub {
   font-size: 14px;
 }
 
+.field-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 6px 0 0 0;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -536,6 +550,49 @@ td .symbol-sub {
   margin-top: 20px;
 }
 
+.terms-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.terms-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.terms-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: #6d28d9;
+}
+
+.terms-row-all {
+  font-weight: 600;
+}
+
+.terms-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.terms-row a {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.terms-row a:hover {
+  color: #a855f7;
+}
+
 .share-list {
   margin-top: 16px;
   border-top: 1px solid var(--border);
@@ -550,23 +607,6 @@ td .symbol-sub {
   font-size: 13px;
 }
 
-.form-field input,
-.form-field select {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 8px 10px;
-  font-size: 14px;
-}
-
-.field-hint {
-  font-size: 12px;
-  color: var(--text-dim);
-  margin: 6px 0 0 0;
-}
-
 /* ---------------------------------------------------------
    모바일 반응형 (PC 화면은 위 스타일 그대로, 아래는 좁은 화면일 때만 적용)
 --------------------------------------------------------- */
@@ -575,6 +615,7 @@ td .symbol-sub {
     padding: 14px;
   }
 
+  /* 상단 헤더: 로고+타이틀, 시장지표 티커를 세로로 쌓기 */
   .header-row {
     flex-direction: column;
     align-items: stretch;
@@ -594,18 +635,22 @@ td .symbol-sub {
     row-gap: 8px;
   }
 
+  /* 요약 카드(현금/부동산/코인/주식): 한 줄에 하나씩, 다른 패널과 같은 너비로 통일 */
   .summary-cards {
     grid-template-columns: 1fr;
   }
 
+  /* 도넛차트 + 자산성장추이 그래프: 세로로 쌓기 */
   .charts-row {
     grid-template-columns: 1fr;
   }
 
+  /* 현금/부동산/코인 보유현황 테이블: 세로로 쌓기 */
   .tables-row {
     grid-template-columns: 1fr;
   }
 
+  /* 매도실현손익 + 총보유현황: 세로로 쌓기 */
   .stats-row {
     grid-template-columns: 1fr;
   }
@@ -615,6 +660,7 @@ td .symbol-sub {
     row-gap: 8px;
   }
 
+  /* 열이 많은 표는 패널 안에서만 가로 스크롤 되도록 (페이지 전체가 옆으로 밀리지 않게) */
   .panel {
     overflow-x: auto;
   }
@@ -627,12 +673,4 @@ td .symbol-sub {
     width: 92vw;
     padding: 20px;
   }
-}
-
-.profit-amount {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  opacity: 0.85;
-  margin-top: 2px;
 }

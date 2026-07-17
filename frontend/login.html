@@ -43,11 +43,28 @@
           <input type="email" name="email" required autocomplete="email">
         </div>
         <div class="form-field">
-          <label>비밀번호 (4자 이상)</label>
-          <input type="password" name="password" required minlength="4" autocomplete="new-password">
+          <label>비밀번호 (8자 이상)</label>
+          <input type="password" name="password" required minlength="8" autocomplete="new-password">
         </div>
+
+        <div class="terms-box">
+          <label class="terms-row terms-row-all">
+            <input type="checkbox" id="agreeAllCheckbox">
+            <span>필수 약관에 모두 동의</span>
+          </label>
+          <div class="terms-divider"></div>
+          <label class="terms-row">
+            <input type="checkbox" class="terms-required" id="agreeTermsCheckbox">
+            <span>[필수] <a href="legal/terms.html" target="_blank">이용약관</a> 동의</span>
+          </label>
+          <label class="terms-row">
+            <input type="checkbox" class="terms-required" id="agreePrivacyCheckbox">
+            <span>[필수] <a href="legal/privacy.html" target="_blank">개인정보 수집·이용</a> 동의</span>
+          </label>
+        </div>
+
         <p class="auth-error hidden" id="signupError"></p>
-        <button type="submit" class="btn btn-primary auth-submit">회원가입</button>
+        <button type="submit" class="btn btn-primary auth-submit" id="signupSubmitBtn" disabled>회원가입</button>
       </form>
 
       <p class="auth-hint">데모 계정: demo@example.com / demo1234</p>
