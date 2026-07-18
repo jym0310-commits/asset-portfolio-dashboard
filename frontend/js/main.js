@@ -62,6 +62,8 @@ let allocationChartInstance = null;
 let growthChartInstance = null;
 let sectorChartInstance = null;
 let stockGrowthChartInstance = null;
+let stockDetailChartInstance = null;
+let stockDetailCurrentRow = null;
 
 /* ---------------------------------------------------------
    상단 요약 카드 + 자산 배분 도넛차트
@@ -163,6 +165,94 @@ async function loadEconomicCalendar() {
     console.error('경제일정 로딩 실패:', err);
     valueEl.textContent = '불러오기 실패';
     valueEl.title = err.message;
+  }
+}
+
+/* ---------------------------------------------------------
+   연도별 재무 목표
+--------------------------------------------------------- */
+function setupGoalYearSelect() {
+  const select = document.getElementById('goalYearSelect');
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let y = currentYear - 2; y <= currentYear + 20; y++) {
+    years.push(y);
+  }
+  select.innerHTML = years.map((y) => `<option value="${y}">${y}년</option>`).join('');
+  select.value = String(currentYear);
+}
+
+// 입력창에 숫자를 입력하는 동안 실시간으로 콤마(1,000단위 구분자)를 붙여줍니다.
+function setupGoalInputFormatting() {
+  const input = document.getElementById('goalTargetInput');
+  input.addEventListener('input', () => {
+    const digitsOnly = input.value.replace(/[^0-9]/g, '');
+    input.value = digitsOnly ? Number(digitsOnly).toLocaleString('ko-KR') : '';
+  });
+}
+
+function parseGoalInputValue() {
+  const input = document.getElementById('goalTargetInput');
+  return Number(input.value.replace(/[^0-9]/g, ''));
+}
+
+async function loadFinancialGoal() {
+  const select = document.getElementById('goalYearSelect');
+  const year = select.value;
+  const input = document.getElementById('goalTargetInput');
+  const fillEl = document.getElementById('goalProgressFill');
+  const textEl = document.getElementById('goalProgressText');
+
+  try {
+    const res = await fetch(`${API_BASE}/financial-goals/${year}`);
+    if (!res.ok) throw new Error('재무목표 API 응답 오류');
+    const data = await res.json();
+
+    input.value = data.target_amount ? Math.round(data.target_amount).toLocaleString('ko-KR') : '';
+
+    if (!data.target_amount) {
+      fillEl.style.width = '0%';
+      textEl.innerHTML = `현재 자산 <span class="goal-highlight">${formatKRW(data.current_total)}원</span> · 목표를 설정해주세요.`;
+      return;
+    }
+
+    const rate = Math.max(0, data.progress_rate);
+    fillEl.style.width = `${Math.min(rate, 100)}%`;
+
+    if (data.remaining_amount <= 0) {
+      textEl.innerHTML = `🎉 목표 달성! 현재 <span class="goal-highlight">${formatKRW(data.current_total)}원</span> (목표 ${formatKRW(data.target_amount)}원, ${rate}%)`;
+    } else {
+      textEl.innerHTML = `현재 <span class="goal-highlight">${formatKRW(data.current_total)}원</span> / 목표 ${formatKRW(data.target_amount)}원 (${rate}%) · 남은 금액 <span class="goal-highlight">${formatKRW(data.remaining_amount)}원</span>`;
+    }
+  } catch (err) {
+    console.error('재무목표 로딩 실패:', err);
+  }
+}
+
+async function saveFinancialGoal() {
+  const select = document.getElementById('goalYearSelect');
+  const year = select.value;
+  const targetAmount = parseGoalInputValue();
+
+  if (!targetAmount || targetAmount <= 0) {
+    alert('목표 금액을 입력해주세요.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/financial-goals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, target_amount: targetAmount }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || '저장 중 오류가 발생했습니다.');
+      return;
+    }
+    loadFinancialGoal();
+  } catch (err) {
+    console.error('재무목표 저장 실패:', err);
   }
 }
 
@@ -431,6 +521,7 @@ async function loadCryptoTable() {
           <td>${escapeHtml(r.currency)}</td>
           <td>${formatKRW(r.current_total_krw)}</td>
           <td class="action-cell">
+            <button class="btn btn-sm btn-ghost" onclick="openStockDetailChart(cryptoRowCache[${r.id}])">차트</button>
             <button class="btn btn-sm btn-primary" onclick="openSellForm(cryptoRowCache[${r.id}])">매도</button>
             <button class="btn btn-sm btn-edit" onclick="openHoldingForm(cryptoRowCache[${r.id}])">수정</button>
             <button class="btn btn-sm btn-danger" onclick="deleteHolding(${r.id})">삭제</button>
@@ -492,6 +583,7 @@ async function loadHoldingsTable(filters = {}) {
           <td>${formatKRW(r.current_total_krw)}원</td>
           <td>${r.quantity.toLocaleString('ko-KR')}주</td>
           <td class="action-cell">
+            <button class="btn btn-sm btn-ghost" onclick="openStockDetailChart(holdingsRowCache[${r.id}])">차트</button>
             <button class="btn btn-sm btn-primary" onclick="openSellForm(holdingsRowCache[${r.id}])">매도</button>
             <button class="btn btn-sm btn-edit" onclick="openHoldingForm(holdingsRowCache[${r.id}])">수정</button>
             <button class="btn btn-sm btn-danger" onclick="deleteHolding(${r.id})">삭제</button>
@@ -1132,6 +1224,84 @@ function openSellForm(row) {
 }
 
 /* ---------------------------------------------------------
+   종목별 상세 가격 차트
+--------------------------------------------------------- */
+function openStockDetailChart(row) {
+  stockDetailCurrentRow = row;
+  document.getElementById('chartModalTitle').textContent = `${row.name} (${row.symbol})`;
+  document.getElementById('chartModal').classList.remove('hidden');
+
+  const days = Number(document.getElementById('stockDetailRangeSelect').value);
+  loadStockDetailChart(row, days);
+}
+
+function closeStockDetailChart() {
+  document.getElementById('chartModal').classList.add('hidden');
+  if (stockDetailChartInstance) {
+    stockDetailChartInstance.destroy();
+    stockDetailChartInstance = null;
+  }
+  stockDetailCurrentRow = null;
+}
+
+async function loadStockDetailChart(row, days) {
+  try {
+    const params = new URLSearchParams({ assetType: row.asset_type, days });
+    const res = await fetch(`${API_BASE}/holdings/${encodeURIComponent(row.symbol)}/price-history?${params.toString()}`);
+    if (!res.ok) throw new Error('price-history API 응답 오류');
+    const rows = await res.json();
+
+    const ctx = document.getElementById('stockDetailChart');
+    if (stockDetailChartInstance) {
+      stockDetailChartInstance.destroy();
+    }
+
+    if (rows.length === 0) {
+      stockDetailChartInstance = null;
+      ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+      return;
+    }
+
+    stockDetailChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: rows.map((r) => r.date),
+        datasets: [
+          {
+            label: '종가',
+            data: rows.map((r) => r.close_price),
+            borderColor: '#a855f7',
+            backgroundColor: 'rgba(168, 85, 247, 0.15)',
+            fill: true,
+            tension: 0.2,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { color: '#9a9aa8', maxTicksLimit: 10 }, grid: { display: false } },
+          y: { ticks: { color: '#9a9aa8' }, grid: { color: '#262633' } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => formatPrice(context.raw, row.currency),
+            },
+          },
+        },
+      },
+    });
+  } catch (err) {
+    console.error('종목 상세 차트 로딩 실패:', err);
+  }
+}
+
+
+/* ---------------------------------------------------------
    초기화
 --------------------------------------------------------- */
 async function refreshLivePrices() {
@@ -1219,6 +1389,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadMarketTicker();
   loadEconomicCalendar();
   loadSummary();
+  setupGoalYearSelect();
+  setupGoalInputFormatting();
+  loadFinancialGoal();
   loadNetWorthHistory();
   loadCashTable();
   loadRealEstateTable();
@@ -1239,6 +1412,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('growthRangeSelect').addEventListener('change', (e) => {
     loadNetWorthHistory(Number(e.target.value));
+  });
+
+  document.getElementById('goalYearSelect').addEventListener('change', loadFinancialGoal);
+  document.getElementById('goalSaveBtn').addEventListener('click', saveFinancialGoal);
+
+  document.getElementById('chartModalCloseBtn').addEventListener('click', closeStockDetailChart);
+  document.getElementById('stockDetailRangeSelect').addEventListener('change', (e) => {
+    if (stockDetailCurrentRow) {
+      loadStockDetailChart(stockDetailCurrentRow, Number(e.target.value));
+    }
   });
 
   document.getElementById('stockGrowthRangeSelect').addEventListener('change', (e) => {

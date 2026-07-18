@@ -107,6 +107,16 @@ CREATE TABLE IF NOT EXISTS net_worth_snapshots (
   UNIQUE(user_id, snapshot_date)
 );
 
+-- 연도별 재무 목표 (총자산 목표금액)
+CREATE TABLE IF NOT EXISTS financial_goals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  year INTEGER NOT NULL,
+  target_amount REAL NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, year)
+);
+
 CREATE INDEX IF NOT EXISTS idx_price_history_symbol_date ON price_history(symbol, date);
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol ON transactions(symbol);
 CREATE INDEX IF NOT EXISTS idx_cash_accounts_user ON cash_accounts(user_id);
@@ -116,3 +126,4 @@ CREATE INDEX IF NOT EXISTS idx_holdings_user ON holdings(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_net_worth_snapshots_user ON net_worth_snapshots(user_id);
 CREATE INDEX IF NOT EXISTS idx_portfolio_shares_shared_with ON portfolio_shares(shared_with_user_id);
+CREATE INDEX IF NOT EXISTS idx_financial_goals_user ON financial_goals(user_id);

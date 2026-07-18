@@ -1,7 +1,7 @@
 {
   "name": "asset-portfolio-backend",
   "version": "0.1.0",
-  "description": "포트폴리오 노트 백엔드 (Node.js + Express + SQLite)",
+  "description": "포트폴리오노트 백엔드 (Node.js + Express + SQLite)",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
@@ -9,13 +9,15 @@
     "seed": "node src/db/seed.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.3.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "express-session": "^1.19.0",
-    "node-cron": "^3.0.3"
+    "better-sqlite3": "^11.3.0",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
+    "bcryptjs": "^2.4.3",
+    "express-session": "^1.18.0",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.4.0",
+    "better-sqlite3-session-store": "^0.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
