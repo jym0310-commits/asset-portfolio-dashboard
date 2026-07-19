@@ -569,31 +569,114 @@ async function loadHoldingsTable(filters = {}) {
       return;
     }
 
-    tbody.innerHTML = rows
-      .map((r) => {
-        const profitClass = r.profit_rate >= 0 ? 'value-up' : 'value-down';
-        const sign = r.profit_rate >= 0 ? '+' : '';
-        return `<tr>
-          <td>${escapeHtml(r.name)}<span class="symbol-sub">${escapeHtml(r.symbol)}${r.institution ? ' · ' + escapeHtml(r.institution) : ''}</span></td>
-          <td class="${profitClass}">
-            ${sign}${r.profit_rate}%
-            <span class="profit-amount">${sign}${formatKRW(r.profit_krw)}원</span>
+    // 같은 종목(symbol)이 여러 계좌에 나뉘어 있으면 하나의 요약 행으로 묶어서 보여줍니다.
+    // (예: TIGER 미국S&P500을 3개 계좌에 나눠 갖고 있어도 목록에는 1줄만 표시)
+    const groupsBySymbol = {};
+    rows.forEach((r) => {
+      if (!groupsBySymbol[r.symbol]) {
+        groupsBySymbol[r.symbol] = {
+          symbol: r.symbol,
+          name: r.name,
+          currency: r.currency,
+          current_price: r.current_price,
+          quantity: 0,
+          current_total_krw: 0,
+          profit_krw: 0,
+          items: [],
+        };
+      }
+      const g = groupsBySymbol[r.symbol];
+      g.quantity += r.quantity;
+      g.current_total_krw += r.current_total_krw;
+      g.profit_krw += r.profit_krw;
+      g.items.push(r);
+    });
+
+    const groupList = Object.values(groupsBySymbol).sort((a, b) => b.current_total_krw - a.current_total_krw);
+
+    const buildActionCell = (r) => `
+      <button class="btn btn-sm btn-ghost" onclick="openStockDetailChart(holdingsRowCache[${r.id}])">차트</button>
+      <button class="btn btn-sm btn-primary" onclick="openSellForm(holdingsRowCache[${r.id}])">매도</button>
+      <button class="btn btn-sm btn-edit" onclick="openHoldingForm(holdingsRowCache[${r.id}])">수정</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteHolding(${r.id})">삭제</button>`;
+
+    tbody.innerHTML = groupList
+      .map((g) => {
+        // 계좌가 하나뿐인 종목은 기존과 동일하게 한 줄로만 표시
+        if (g.items.length === 1) {
+          const r = g.items[0];
+          const profitClass = r.profit_rate >= 0 ? 'value-up' : 'value-down';
+          const sign = r.profit_rate >= 0 ? '+' : '';
+          return `<tr>
+            <td>${escapeHtml(r.name)}<span class="symbol-sub">${escapeHtml(r.symbol)}${r.institution ? ' · ' + escapeHtml(r.institution) : ''}</span></td>
+            <td class="${profitClass}">
+              ${sign}${r.profit_rate}%
+              <span class="profit-amount">${sign}${formatKRW(r.profit_krw)}원</span>
+            </td>
+            <td>${formatPrice(r.current_price, r.currency)}</td>
+            <td>${formatKRW(r.current_total_krw)}원</td>
+            <td>${r.quantity.toLocaleString('ko-KR')}주</td>
+            <td class="action-cell">${buildActionCell(r)}</td>
+          </tr>`;
+        }
+
+        // 계좌가 여러 개인 종목은 합산된 요약 행 + 클릭 시 펼쳐지는 계좌별 상세 행으로 표시
+        const groupKey = `hg_${g.symbol}`.replace(/[^a-zA-Z0-9_]/g, '_');
+        const costBasis = g.current_total_krw - g.profit_krw;
+        const groupProfitRate = costBasis !== 0 ? (g.profit_krw / costBasis) * 100 : 0;
+        const profitClass = groupProfitRate >= 0 ? 'value-up' : 'value-down';
+        const sign = groupProfitRate >= 0 ? '+' : '';
+
+        const headerRow = `<tr class="holding-group-row" onclick="toggleHoldingGroup('${groupKey}')">
+          <td>
+            <span class="group-arrow" data-group="${groupKey}">▶</span>${escapeHtml(g.name)}<span class="symbol-sub">${escapeHtml(g.symbol)} · ${g.items.length}개 계좌</span>
           </td>
-          <td>${formatPrice(r.current_price, r.currency)}</td>
-          <td>${formatKRW(r.current_total_krw)}원</td>
-          <td>${r.quantity.toLocaleString('ko-KR')}주</td>
+          <td class="${profitClass}">
+            ${sign}${groupProfitRate.toFixed(2)}%
+            <span class="profit-amount">${sign}${formatKRW(g.profit_krw)}원</span>
+          </td>
+          <td>${formatPrice(g.current_price, g.currency)}</td>
+          <td>${formatKRW(g.current_total_krw)}원</td>
+          <td>${g.quantity.toLocaleString('ko-KR')}주</td>
           <td class="action-cell">
-            <button class="btn btn-sm btn-ghost" onclick="openStockDetailChart(holdingsRowCache[${r.id}])">차트</button>
-            <button class="btn btn-sm btn-primary" onclick="openSellForm(holdingsRowCache[${r.id}])">매도</button>
-            <button class="btn btn-sm btn-edit" onclick="openHoldingForm(holdingsRowCache[${r.id}])">수정</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteHolding(${r.id})">삭제</button>
+            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openStockDetailChart(holdingsRowCache[${g.items[0].id}])">차트</button>
           </td>
         </tr>`;
+
+        const subRows = g.items
+          .map((r) => {
+            const profitClass = r.profit_rate >= 0 ? 'value-up' : 'value-down';
+            const sign = r.profit_rate >= 0 ? '+' : '';
+            return `<tr class="holding-subrow hidden" data-group="${groupKey}">
+              <td class="subrow-indent">${escapeHtml(r.institution || '-')}</td>
+              <td class="${profitClass}">
+                ${sign}${r.profit_rate}%
+                <span class="profit-amount">${sign}${formatKRW(r.profit_krw)}원</span>
+              </td>
+              <td>${formatPrice(r.current_price, r.currency)}</td>
+              <td>${formatKRW(r.current_total_krw)}원</td>
+              <td>${r.quantity.toLocaleString('ko-KR')}주</td>
+              <td class="action-cell">${buildActionCell(r)}</td>
+            </tr>`;
+          })
+          .join('');
+
+        return headerRow + subRows;
       })
       .join('');
   } catch (err) {
     console.error('보유 종목 테이블 로딩 실패:', err);
   }
+}
+
+// 계좌별로 묶인 종목 요약 행을 클릭했을 때, 아래 숨겨진 계좌별 상세 행을 펼치거나 접습니다.
+function toggleHoldingGroup(groupKey) {
+  const subRows = document.querySelectorAll(`tr.holding-subrow[data-group="${groupKey}"]`);
+  const arrow = document.querySelector(`.group-arrow[data-group="${groupKey}"]`);
+  if (subRows.length === 0) return;
+  const willExpand = subRows[0].classList.contains('hidden');
+  subRows.forEach((row) => row.classList.toggle('hidden', !willExpand));
+  if (arrow) arrow.classList.toggle('expanded', willExpand);
 }
 
 /* ---------------------------------------------------------

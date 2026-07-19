@@ -254,6 +254,37 @@ td .symbol-sub {
   color: var(--text-dim);
 }
 
+/* 계좌가 여러 개인 종목을 하나로 묶어 보여주는 요약 행 */
+.holding-group-row {
+  cursor: pointer;
+}
+
+.holding-group-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.group-arrow {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+
+.group-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+/* 펼쳤을 때 보이는 계좌별 세부 행 */
+.holding-subrow td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.holding-subrow .subrow-indent {
+  padding-left: 32px;
+  color: var(--text-dim);
+}
+
 .profit-amount {
   display: block;
   font-size: 12px;
