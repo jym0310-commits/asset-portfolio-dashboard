@@ -103,8 +103,7 @@ router.post('/forgot-password', async (req, res) => {
   const genericMessage = '가입된 이메일이면 재설정 링크를 보내드렸어요. 메일함(스팸함 포함)을 확인해주세요.';
 
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  console.log(`[진단] forgot-password 요청 이메일: "${email}" / DB에서 찾은 계정:`, user ? `있음 (id=${user.id}, email="${user.email}")` : '없음');
-
+  
   if (user) {
     // 원문 토큰은 이메일로만 보내고, DB에는 해시값만 저장합니다 (비밀번호와 같은 원리).
     const rawToken = crypto.randomBytes(32).toString('hex');

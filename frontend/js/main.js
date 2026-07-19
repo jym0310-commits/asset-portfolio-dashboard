@@ -1472,6 +1472,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('txHistoryCloseBtn').addEventListener('click', closeTransactionHistory);
   document.getElementById('txTypeFilter').addEventListener('change', loadTransactionHistory);
   document.getElementById('txAssetTypeFilter').addEventListener('change', loadTransactionHistory);
+  document.getElementById('exportHoldingsBtn').addEventListener('click', exportHoldingsCsv);
+ document.getElementById('exportTxHistoryBtn').addEventListener('click', exportTransactionsCsv);
+
   setupRefreshResultsToggle();
 
   document.getElementById('growthRangeSelect').addEventListener('change', (e) => {
@@ -1496,3 +1499,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadRealizedPnl(getCurrentFilters());
   });
 });
+
+/* ---------------------------------------------------------
+   CSV 내보내기
+--------------------------------------------------------- */
+function exportHoldingsCsv() {
+  window.location.href = `${API_BASE}/export/holdings`;
+}
+
+function exportTransactionsCsv() {
+  const tradeType = document.getElementById('txTypeFilter').value;
+  const assetType = document.getElementById('txAssetTypeFilter').value;
+  const params = new URLSearchParams();
+  if (tradeType !== 'all') params.set('tradeType', tradeType);
+  if (assetType !== 'all') params.set('assetType', assetType);
+  window.location.href = `${API_BASE}/export/transactions?${params.toString()}`;
+}

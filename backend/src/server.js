@@ -20,6 +20,7 @@ const realEstateRoutes = require('./routes/realEstate');
 const holdingsRoutes = require('./routes/holdings');
 const transactionsRoutes = require('./routes/transactions');
 const financialGoalsRoutes = require('./routes/financialGoals');
+const exportRoutes = require('./routes/export');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -116,6 +117,8 @@ app.use('/api/real-estate', realEstateRoutes);
 app.use('/api/holdings', holdingsRoutes);
 app.use('/api/transactions', transactionsRoutes);
 app.use('/api/financial-goals', financialGoalsRoutes);
+app.use('/api/export', exportRoutes);
+
 
 // 프론트엔드 정적 파일 서빙 (frontend/ 폴더)
 const frontendPath = path.join(__dirname, '..', '..', 'frontend');
