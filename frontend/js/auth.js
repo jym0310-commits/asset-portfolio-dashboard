@@ -8,6 +8,9 @@ function setupAuthPage() {
   const signupTabBtn = document.getElementById('signupTabBtn');
   const loginForm = document.getElementById('loginForm');
   const signupForm = document.getElementById('signupForm');
+  const forgotForm = document.getElementById('forgotForm');
+  const forgotPasswordRow = document.getElementById('forgotPasswordRow');
+  const authTabs = document.querySelector('.auth-tabs');
 
   loginTabBtn.addEventListener('click', () => {
     loginTabBtn.classList.add('active');
@@ -21,6 +24,23 @@ function setupAuthPage() {
     loginTabBtn.classList.remove('active');
     signupForm.classList.remove('hidden');
     loginForm.classList.add('hidden');
+  });
+
+  document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    authTabs.classList.add('hidden');
+    loginForm.classList.add('hidden');
+    signupForm.classList.add('hidden');
+    forgotPasswordRow.classList.add('hidden');
+    forgotForm.classList.remove('hidden');
+  });
+
+  document.getElementById('backToLoginLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    forgotForm.classList.add('hidden');
+    authTabs.classList.remove('hidden');
+    forgotPasswordRow.classList.remove('hidden');
+    loginTabBtn.click();
   });
 
   setupTermsAgreement();
@@ -90,6 +110,43 @@ function setupAuthPage() {
       errorEl.classList.remove('hidden');
     }
   });
+
+  forgotForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById('forgotError');
+    const successEl = document.getElementById('forgotSuccess');
+    errorEl.classList.add('hidden');
+    successEl.classList.add('hidden');
+
+    const formData = new FormData(forgotForm);
+    const payload = Object.fromEntries(formData.entries());
+    const submitBtn = forgotForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch(`${AUTH_API_BASE}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errorEl.textContent = data.error || '요청 처리 중 오류가 발생했습니다.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      successEl.textContent = data.message || '가입된 이메일이면 재설정 링크를 보내드렸어요. 메일함(스팸함 포함)을 확인해주세요.';
+      successEl.classList.remove('hidden');
+      forgotForm.reset();
+    } catch (err) {
+      errorEl.textContent = '서버와 통신 중 오류가 발생했습니다.';
+      errorEl.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
 }
 
 // "전체 동의" 체크박스와 개별 필수약관 체크박스를 서로 연동하고,
@@ -149,6 +206,76 @@ function setupUserBar(user) {
   }
 }
 
+/* ---------------------------------------------------------
+   비밀번호 재설정 페이지 (reset-password.html) 전용 로직
+--------------------------------------------------------- */
+function setupResetPasswordPage() {
+  const form = document.getElementById('resetForm');
+  const errorEl = document.getElementById('resetError');
+  const successEl = document.getElementById('resetSuccess');
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  const email = urlParams.get('email');
+
+  if (!token || !email) {
+    form.classList.add('hidden');
+    errorEl.textContent = '유효하지 않은 재설정 링크예요. 이메일에 있는 링크를 다시 확인해주세요.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.classList.add('hidden');
+    successEl.classList.add('hidden');
+
+    const formData = new FormData(form);
+    const newPassword = formData.get('new_password');
+    const newPasswordConfirm = formData.get('new_password_confirm');
+
+    if (newPassword !== newPasswordConfirm) {
+      errorEl.textContent = '두 비밀번호가 서로 달라요.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch(`${AUTH_API_BASE}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, email, new_password: newPassword }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errorEl.textContent = data.error || '비밀번호 재설정에 실패했습니다.';
+        errorEl.classList.remove('hidden');
+        submitBtn.disabled = false;
+        return;
+      }
+
+      successEl.textContent = '비밀번호가 변경됐어요. 새 비밀번호로 로그인해주세요.';
+      successEl.classList.remove('hidden');
+      form.classList.add('hidden');
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 2000);
+    } catch (err) {
+      errorEl.textContent = '서버와 통신 중 오류가 발생했습니다.';
+      errorEl.classList.remove('hidden');
+      submitBtn.disabled = false;
+    }
+  });
+}
+
 if (document.getElementById('loginForm')) {
   document.addEventListener('DOMContentLoaded', setupAuthPage);
+}
+
+if (document.getElementById('resetForm')) {
+  document.addEventListener('DOMContentLoaded', setupResetPasswordPage);
 }

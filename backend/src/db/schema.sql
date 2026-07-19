@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   display_name TEXT,
   terms_agreed_at TEXT,             -- 필수 약관(이용약관/개인정보 수집이용) 동의 시각
+  reset_token_hash TEXT,            -- 비밀번호 재설정 토큰의 해시값 (원문은 저장 안 함)
+  reset_token_expires TEXT,         -- 재설정 토큰 만료 시각
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -22,8 +24,8 @@ CREATE TABLE IF NOT EXISTS portfolio_shares (
 CREATE TABLE IF NOT EXISTS cash_accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  account_name TEXT NOT NULL,      -- 예: 한국투자증권(CMA), 주택청약(윤민)
-  institution TEXT,                -- 예: 한국투자증권, 미래에셋
+  account_name TEXT NOT NULL,
+  institution TEXT,
   currency TEXT NOT NULL DEFAULT 'KRW',
   balance REAL NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -33,7 +35,7 @@ CREATE TABLE IF NOT EXISTS cash_accounts (
 CREATE TABLE IF NOT EXISTS real_estates (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  item_name TEXT NOT NULL,         -- 예: 해링턴, 월세보증금
+  item_name TEXT NOT NULL,
   currency TEXT NOT NULL DEFAULT 'KRW',
   balance REAL NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -53,16 +55,16 @@ CREATE TABLE IF NOT EXISTS insurances (
 CREATE TABLE IF NOT EXISTS holdings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  symbol TEXT NOT NULL,            -- 예: 005930, GOOGL, KRW-BTC
-  name TEXT NOT NULL,              -- 예: 삼성전자, 알파벳 A, 비트코인
+  symbol TEXT NOT NULL,
+  name TEXT NOT NULL,
   asset_type TEXT NOT NULL CHECK (asset_type IN ('domestic_stock', 'overseas_stock', 'crypto')),
-  sector TEXT,                     -- 주식 섹터 구분: 기술주, 배당주, S&P500 등 (코인은 NULL)
-  institution TEXT,                -- 보유 증권사: 한국투자증권, 미래에셋 등
-  exchange TEXT,                   -- 해외주식 거래소 코드: NAS(나스닥), NYS(뉴욕), AMS(아멕스) 등
-  purchase_date TEXT,              -- 최초 매수일 (YYYY-MM-DD) - 자산 변화 추적 시작 기준
-  purchase_fx_rate REAL,           -- 매수 시점 USD/KRW 환율 (해외주식 원가를 매수시점 환율로 고정 계산하기 위함, KRW 종목/코인은 NULL)
+  sector TEXT,
+  institution TEXT,
+  exchange TEXT,
+  purchase_date TEXT,
+  purchase_fx_rate REAL,
   quantity REAL NOT NULL DEFAULT 0,
-  avg_price REAL NOT NULL DEFAULT 0,   -- 평단가
+  avg_price REAL NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'KRW',
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(user_id, symbol, asset_type, institution)
@@ -73,7 +75,7 @@ CREATE TABLE IF NOT EXISTS price_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   symbol TEXT NOT NULL,
   asset_type TEXT NOT NULL CHECK (asset_type IN ('domestic_stock', 'overseas_stock', 'crypto')),
-  date TEXT NOT NULL,              -- YYYY-MM-DD
+  date TEXT NOT NULL,
   close_price REAL NOT NULL,
   volume REAL,
   UNIQUE(symbol, asset_type, date)
@@ -88,8 +90,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   trade_type TEXT NOT NULL CHECK (trade_type IN ('buy', 'sell')),
   quantity REAL NOT NULL,
   price REAL NOT NULL,
-  realized_pnl REAL,               -- 매도(sell)일 때만 사용: 해당 거래의 실현손익(원화)
-  trade_date TEXT NOT NULL,        -- YYYY-MM-DD
+  realized_pnl REAL,
+  trade_date TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -97,7 +99,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE TABLE IF NOT EXISTS net_worth_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  snapshot_date TEXT NOT NULL,     -- YYYY-MM-DD
+  snapshot_date TEXT NOT NULL,
   cash_total REAL NOT NULL DEFAULT 0,
   real_estate_total REAL NOT NULL DEFAULT 0,
   crypto_total REAL NOT NULL DEFAULT 0,

@@ -40,6 +40,24 @@
         <button type="submit" class="btn btn-primary auth-submit">로그인</button>
       </form>
 
+      <p class="auth-link-row" id="forgotPasswordRow">
+        <a href="#" id="forgotPasswordLink">비밀번호를 잊으셨나요?</a>
+      </p>
+
+      <!-- 비밀번호 찾기(재설정 링크 요청) 폼 -->
+      <form id="forgotForm" class="auth-form hidden">
+        <div class="form-field">
+          <label>가입하신 이메일</label>
+          <input type="email" name="email" required autocomplete="email">
+        </div>
+        <p class="auth-error hidden" id="forgotError"></p>
+        <p class="auth-success hidden" id="forgotSuccess"></p>
+        <button type="submit" class="btn btn-primary auth-submit">재설정 링크 받기</button>
+        <p class="auth-link-row">
+          <a href="#" id="backToLoginLink">로그인으로 돌아가기</a>
+        </p>
+      </form>
+
       <!-- 회원가입 폼 -->
       <form id="signupForm" class="auth-form hidden">
         <div class="form-field">

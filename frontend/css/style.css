@@ -633,6 +633,28 @@ td .symbol-sub {
   margin: -6px 0 12px 0;
 }
 
+.auth-success {
+  color: var(--c-profit);
+  font-size: 13px;
+  margin: -6px 0 12px 0;
+}
+
+.auth-link-row {
+  text-align: center;
+  font-size: 13px;
+  margin: 4px 0 16px 0;
+}
+
+.auth-link-row a {
+  color: var(--text-dim);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.auth-link-row a:hover {
+  color: #a855f7;
+}
+
 .auth-hint {
   text-align: center;
   font-size: 12px;
@@ -705,7 +727,6 @@ td .symbol-sub {
     padding: 14px;
   }
 
-  /* 상단 헤더: 로고+타이틀, 시장지표 티커를 세로로 쌓기 */
   .header-row {
     flex-direction: column;
     align-items: stretch;
@@ -725,22 +746,18 @@ td .symbol-sub {
     row-gap: 8px;
   }
 
-  /* 요약 카드(현금/부동산/코인/주식): 한 줄에 하나씩, 다른 패널과 같은 너비로 통일 */
   .summary-cards {
     grid-template-columns: 1fr;
   }
 
-  /* 도넛차트 + 자산성장추이 그래프: 세로로 쌓기 */
   .charts-row {
     grid-template-columns: 1fr;
   }
 
-  /* 현금/부동산/코인 보유현황 테이블: 세로로 쌓기 */
   .tables-row {
     grid-template-columns: 1fr;
   }
 
-  /* 매도실현손익 + 총보유현황: 세로로 쌓기 */
   .stats-row {
     grid-template-columns: 1fr;
   }
@@ -750,7 +767,6 @@ td .symbol-sub {
     row-gap: 8px;
   }
 
-  /* 열이 많은 표는 패널 안에서만 가로 스크롤 되도록 (페이지 전체가 옆으로 밀리지 않게) */
   .panel {
     overflow-x: auto;
   }

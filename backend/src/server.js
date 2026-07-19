@@ -68,6 +68,7 @@ const generalLimiter = rateLimit({
 app.use('/api', generalLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/signup', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
 
 app.use(
   session({

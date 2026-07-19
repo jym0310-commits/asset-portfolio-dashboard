@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { db } = require('../db');
+const { sendPasswordResetEmail } = require('../services/emailService');
 
 // POST /api/auth/signup - 회원가입
 router.post('/signup', (req, res) => {
@@ -87,6 +89,74 @@ router.get('/me', (req, res) => {
   }
 
   res.json(user);
+});
+
+// POST /api/auth/forgot-password - 비밀번호 재설정 링크 요청
+// 가입 여부와 상관없이 항상 같은 응답을 줍니다 (이메일 존재 여부를 외부에서 추측 못 하게 하기 위함).
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: '이메일을 입력해주세요.' });
+  }
+
+  const genericMessage = '가입된 이메일이면 재설정 링크를 보내드렸어요. 메일함(스팸함 포함)을 확인해주세요.';
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  console.log(`[진단] forgot-password 요청 이메일: "${email}" / DB에서 찾은 계정:`, user ? `있음 (id=${user.id}, email="${user.email}")` : '없음');
+
+  if (user) {
+    // 원문 토큰은 이메일로만 보내고, DB에는 해시값만 저장합니다 (비밀번호와 같은 원리).
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1시간 뒤 만료
+
+    db.prepare(
+      `UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE id = ?`
+    ).run(tokenHash, expiresAt, user.id);
+
+    try {
+      await sendPasswordResetEmail(user.email, rawToken);
+    } catch (err) {
+      console.error('비밀번호 재설정 이메일 발송 실패:', err.message);
+      // 이메일 발송에 실패해도, 존재 여부가 드러나지 않도록 사용자에게는 동일한 성공 메시지를 줍니다.
+    }
+  }
+
+  res.json({ message: genericMessage });
+});
+
+// POST /api/auth/reset-password - 이메일로 받은 토큰으로 비밀번호 재설정
+router.post('/reset-password', (req, res) => {
+  const { email, token, new_password } = req.body;
+
+  if (!email || !token || !new_password) {
+    return res.status(400).json({ error: 'email, token, new_password는 필수입니다.' });
+  }
+  if (new_password.length < 8) {
+    return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!user || !user.reset_token_hash || !user.reset_token_expires) {
+    return res.status(400).json({ error: '재설정 링크가 유효하지 않아요. 다시 요청해주세요.' });
+  }
+
+  if (new Date(user.reset_token_expires).getTime() < Date.now()) {
+    return res.status(400).json({ error: '재설정 링크가 만료됐어요. 다시 요청해주세요.' });
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  if (tokenHash !== user.reset_token_hash) {
+    return res.status(400).json({ error: '재설정 링크가 유효하지 않아요. 다시 요청해주세요.' });
+  }
+
+  const newPasswordHash = bcrypt.hashSync(new_password, 10);
+  db.prepare(
+    `UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL WHERE id = ?`
+  ).run(newPasswordHash, user.id);
+
+  res.json({ success: true });
 });
 
 module.exports = router;
