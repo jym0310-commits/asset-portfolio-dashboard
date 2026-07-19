@@ -1,23 +1,31 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-
-// 자체 도메인 인증 전이라, Resend가 기본 제공하는 발신 주소를 사용합니다.
-// 나중에 도메인을 인증하면 이 값을 "포트폴리오노트 <noreply@내도메인.com>" 형태로 바꾸면 됩니다.
-const FROM_ADDRESS = process.env.EMAIL_FROM || '포트폴리오노트 <onboarding@resend.dev>';
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 
 // 앱이 실제로 서비스되는 주소 (재설정 링크를 만들 때 사용). 배포 환경에선 반드시 설정해야 합니다.
 const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:4000';
 
+let transporter = null;
+if (GMAIL_USER && GMAIL_APP_PASSWORD) {
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: GMAIL_USER,
+      pass: GMAIL_APP_PASSWORD, // 구글 일반 비밀번호가 아니라 "앱 비밀번호"여야 합니다.
+    },
+  });
+}
+
 async function sendPasswordResetEmail(toEmail, resetToken) {
-  if (!resend) {
-    throw new Error('.env 파일에 RESEND_API_KEY가 설정되어 있지 않습니다.');
+  if (!transporter) {
+    throw new Error('.env 파일에 GMAIL_USER / GMAIL_APP_PASSWORD가 설정되어 있지 않습니다.');
   }
 
   const resetUrl = `${APP_BASE_URL}/reset-password.html?token=${encodeURIComponent(resetToken)}&email=${encodeURIComponent(toEmail)}`;
 
-  await resend.emails.send({
-    from: FROM_ADDRESS,
+  await transporter.sendMail({
+    from: `포트폴리오노트 <${GMAIL_USER}>`,
     to: toEmail,
     subject: '[포트폴리오노트] 비밀번호 재설정 안내',
     html: `
