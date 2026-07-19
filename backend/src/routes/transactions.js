@@ -66,17 +66,34 @@ router.post('/sell', (req, res) => {
   });
 });
 
-// GET /api/transactions?symbol=&assetType= - 거래내역 조회 (전체 또는 특정 종목, 내 것만)
+// GET /api/transactions?symbol=&assetType=&tradeType= - 거래내역 조회 (내 것만)
+// holdings 테이블과 조인해서 종목명을 같이 보여줍니다 (종목이 이미 삭제됐으면 이름 없이 코드만 표시).
 router.get('/', (req, res) => {
-  const { symbol, assetType } = req.query;
-  let query = 'SELECT * FROM transactions WHERE user_id = ?';
+  const { symbol, assetType, tradeType } = req.query;
+
+  let query = `
+    SELECT t.*, h.name AS holding_name
+    FROM transactions t
+    LEFT JOIN holdings h
+      ON h.symbol = t.symbol AND h.asset_type = t.asset_type AND h.user_id = t.user_id
+    WHERE t.user_id = ?
+  `;
   const params = [req.ownerId];
 
   if (symbol && assetType) {
-    query += ' AND symbol = ? AND asset_type = ?';
+    query += ' AND t.symbol = ? AND t.asset_type = ?';
     params.push(symbol, assetType);
+  } else if (assetType && assetType !== 'all') {
+    query += ' AND t.asset_type = ?';
+    params.push(assetType);
   }
-  query += ' ORDER BY trade_date DESC, id DESC';
+
+  if (tradeType && tradeType !== 'all') {
+    query += ' AND t.trade_type = ?';
+    params.push(tradeType);
+  }
+
+  query += ' ORDER BY t.trade_date DESC, t.id DESC';
 
   const rows = db.prepare(query).all(...params);
   res.json(rows);
