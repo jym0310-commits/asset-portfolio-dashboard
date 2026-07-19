@@ -1302,6 +1302,66 @@ async function loadStockDetailChart(row, days) {
 
 
 /* ---------------------------------------------------------
+   거래내역(매수/매도) 히스토리
+--------------------------------------------------------- */
+function openTransactionHistory() {
+  document.getElementById('txHistoryModal').classList.remove('hidden');
+  loadTransactionHistory();
+}
+
+function closeTransactionHistory() {
+  document.getElementById('txHistoryModal').classList.add('hidden');
+}
+
+async function loadTransactionHistory() {
+  const tbody = document.querySelector('#txHistoryTable tbody');
+  const tradeType = document.getElementById('txTypeFilter').value;
+  const assetType = document.getElementById('txAssetTypeFilter').value;
+
+  const params = new URLSearchParams();
+  if (tradeType !== 'all') params.set('tradeType', tradeType);
+  if (assetType !== 'all') params.set('assetType', assetType);
+
+  try {
+    const res = await fetch(`${API_BASE}/transactions?${params.toString()}`);
+    if (!res.ok) throw new Error('거래내역 API 응답 오류');
+    const rows = await res.json();
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="loading-text">거래내역이 없어요.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows
+      .map((t) => {
+        const currency = t.asset_type === 'overseas_stock' ? 'USD' : 'KRW';
+        const isBuy = t.trade_type === 'buy';
+        const badge = isBuy
+          ? '<span class="trade-type-badge buy">매수</span>'
+          : '<span class="trade-type-badge sell">매도</span>';
+        const displayName = t.holding_name ? escapeHtml(t.holding_name) : escapeHtml(t.symbol);
+        const pnlCell =
+          t.trade_type === 'sell' && t.realized_pnl !== null
+            ? `<span class="${t.realized_pnl >= 0 ? 'value-up' : 'value-down'}">${t.realized_pnl >= 0 ? '+' : ''}${formatKRW(t.realized_pnl)}원</span>`
+            : '-';
+
+        return `<tr>
+          <td>${t.trade_date}</td>
+          <td>${displayName}<span class="symbol-sub">${escapeHtml(t.symbol)}</span></td>
+          <td>${badge}</td>
+          <td>${t.quantity.toLocaleString('ko-KR')}</td>
+          <td>${formatPrice(t.price, currency)}</td>
+          <td>${pnlCell}</td>
+        </tr>`;
+      })
+      .join('');
+  } catch (err) {
+    console.error('거래내역 로딩 실패:', err);
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">불러오지 못했어요.</td></tr>';
+  }
+}
+
+/* ---------------------------------------------------------
    초기화
 --------------------------------------------------------- */
 async function refreshLivePrices() {
@@ -1408,6 +1468,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('addCryptoBtn').addEventListener('click', () => openHoldingForm(null, 'crypto'));
   document.getElementById('addStockBtn').addEventListener('click', () => openHoldingForm(null, 'domestic_stock'));
   document.getElementById('refreshPricesBtn').addEventListener('click', refreshLivePrices);
+  document.getElementById('txHistoryBtn').addEventListener('click', openTransactionHistory);
+  document.getElementById('txHistoryCloseBtn').addEventListener('click', closeTransactionHistory);
+  document.getElementById('txTypeFilter').addEventListener('change', loadTransactionHistory);
+  document.getElementById('txAssetTypeFilter').addEventListener('change', loadTransactionHistory);
   setupRefreshResultsToggle();
 
   document.getElementById('growthRangeSelect').addEventListener('change', (e) => {

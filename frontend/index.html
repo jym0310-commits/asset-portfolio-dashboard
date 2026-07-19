@@ -245,9 +245,18 @@
   <section class="panel">
     <div class="panel-header">
       <p class="panel-title">보유 종목 (주식)</p>
+      <button class="btn btn-sm btn-ghost" id="txHistoryBtn">거래내역</button>
       <button class="btn btn-sm btn-primary" id="addStockBtn">+ 추가</button>
     </div>
     <table id="holdingsTable">
+      <colgroup>
+        <col style="width:26%">
+        <col style="width:14%">
+        <col style="width:14%">
+        <col style="width:16%">
+        <col style="width:10%">
+        <col style="width:20%">
+      </colgroup>
       <thead>
         <tr>
           <th>종목명</th><th>총수익</th><th>현재가</th><th>총 금액</th><th>수량</th><th>관리</th>
@@ -288,6 +297,45 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="chartModalCloseBtn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 거래내역(매수/매도) 히스토리 모달 -->
+  <div class="modal-overlay hidden" id="txHistoryModal">
+    <div class="modal modal-wide">
+      <div class="modal-header-row">
+        <h3>거래내역</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="txHistoryCloseBtn">닫기</button>
+      </div>
+      <div class="filter-bar tx-history-filter-bar">
+        <div class="filter-group">
+          <label for="txTypeFilter">구분</label>
+          <select id="txTypeFilter">
+            <option value="all">전체</option>
+            <option value="buy">매수</option>
+            <option value="sell">매도</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="txAssetTypeFilter">시장</label>
+          <select id="txAssetTypeFilter">
+            <option value="all">전체</option>
+            <option value="domestic_stock">국내</option>
+            <option value="overseas_stock">해외</option>
+            <option value="crypto">코인</option>
+          </select>
+        </div>
+      </div>
+      <div class="tx-history-table-wrap">
+        <table id="txHistoryTable">
+          <thead>
+            <tr>
+              <th>날짜</th><th>종목</th><th>구분</th><th>수량</th><th>단가</th><th>실현손익</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="6" class="loading-text">불러오는 중...</td></tr></tbody>
+        </table>
       </div>
     </div>
   </div>

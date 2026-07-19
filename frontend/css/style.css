@@ -764,3 +764,34 @@ td .symbol-sub {
     padding: 20px;
   }
 }
+
+#holdingsTable {
+  table-layout: fixed;
+}
+
+.tx-history-filter-bar {
+  margin-bottom: 16px;
+}
+
+.tx-history-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.trade-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.trade-type-badge.buy {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.trade-type-badge.sell {
+  background: rgba(244, 63, 94, 0.15);
+  color: #f43f5e;
+}
