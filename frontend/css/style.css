@@ -438,6 +438,7 @@ td .symbol-sub {
   display: flex;
   gap: 6px;
   white-space: nowrap;
+  width: 1%;
 }
 
 .modal-overlay {
