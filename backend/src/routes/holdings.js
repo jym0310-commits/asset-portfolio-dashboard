@@ -107,8 +107,8 @@ router.post('/', (req, res) => {
     .get(userId, symbol, asset_type, institution || null);
 
   const insertBuyTx = db.prepare(
-    `INSERT INTO transactions (user_id, symbol, asset_type, trade_type, quantity, price, trade_date)
-     VALUES (?, ?, ?, 'buy', ?, ?, ?)`
+    `INSERT INTO transactions (user_id, symbol, asset_type, trade_type, quantity, price, trade_date, holding_id)
+     VALUES (?, ?, ?, 'buy', ?, ?, ?, ?)`
   );
 
   // 해외주식(USD)만 매수시점 환율을 기록합니다. 국내주식/코인(KRW)은 환율 환산이 필요없어 NULL로 둡니다.
@@ -148,7 +148,7 @@ router.post('/', (req, res) => {
        WHERE id = ?`
     ).run(newQuantity, newAvgPrice, newFxRate, sector || null, exchange || null, buyDate, existing.id);
 
-    insertBuyTx.run(userId, symbol, asset_type, qty, price, buyDate);
+    insertBuyTx.run(userId, symbol, asset_type, qty, price, buyDate, existing.id);
     snapshotNetWorth(userId);
 
     return res.status(200).json({
@@ -179,7 +179,7 @@ router.post('/', (req, res) => {
       currency || 'KRW'
     );
 
-    insertBuyTx.run(userId, symbol, asset_type, qty, price, buyDate);
+    insertBuyTx.run(userId, symbol, asset_type, qty, price, buyDate, result.lastInsertRowid);
 
     const existingPrice = db
       .prepare('SELECT 1 FROM price_history WHERE symbol = ? AND asset_type = ?')

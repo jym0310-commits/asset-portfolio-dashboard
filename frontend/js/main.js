@@ -54,6 +54,7 @@ let cashRowCache = {};
 let realEstateRowCache = {};
 let cryptoRowCache = {};
 let holdingsRowCache = {};
+let txRowCache = {};
 
 /* ---------------------------------------------------------
    차트 인스턴스 (재렌더링 시 destroy 후 재생성하기 위해 보관)
@@ -877,6 +878,10 @@ async function refreshAll() {
   loadStockGrowthChart(Number(document.getElementById('stockGrowthRangeSelect').value));
   await loadInstitutionOptions();
   reloadFilteredSections();
+
+  if (!document.getElementById('txHistoryModal').classList.contains('hidden')) {
+    loadTransactionHistory();
+  }
 }
 
 /* ---------------------------------------------------------
@@ -1410,8 +1415,13 @@ async function loadTransactionHistory() {
     if (!res.ok) throw new Error('거래내역 API 응답 오류');
     const rows = await res.json();
 
+    txRowCache = {};
+    rows.forEach((t) => {
+      txRowCache[t.id] = t;
+    });
+
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="loading-text">거래내역이 없어요.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="loading-text">거래내역이 없어요.</td></tr>';
       return;
     }
 
@@ -1423,24 +1433,134 @@ async function loadTransactionHistory() {
           ? '<span class="trade-type-badge buy">매수</span>'
           : '<span class="trade-type-badge sell">매도</span>';
         const displayName = t.holding_name ? escapeHtml(t.holding_name) : escapeHtml(t.symbol);
+        // 같은 종목코드를 증권사 여러 곳에 나눠 보유한 경우 구분할 수 있도록 증권사명도 같이 보여줍니다.
+        const institutionSuffix = t.holding_institution ? ` · ${escapeHtml(t.holding_institution)}` : '';
         const pnlCell =
           t.trade_type === 'sell' && t.realized_pnl !== null
             ? `<span class="${t.realized_pnl >= 0 ? 'value-up' : 'value-down'}">${t.realized_pnl >= 0 ? '+' : ''}${formatKRW(t.realized_pnl)}원</span>`
             : '-';
+        const manageCell = t.holding_id
+          ? `<button class="btn btn-sm btn-edit" onclick="openEditTransactionForm(txRowCache[${t.id}])">수정</button>
+             <button class="btn btn-sm btn-danger" onclick="deleteTransaction(${t.id})">삭제</button>`
+          : '-';
 
         return `<tr>
           <td>${t.trade_date}</td>
-          <td>${displayName}<span class="symbol-sub">${escapeHtml(t.symbol)}</span></td>
+          <td>${displayName}<span class="symbol-sub">${escapeHtml(t.symbol)}${institutionSuffix}</span></td>
           <td>${badge}</td>
           <td>${t.quantity.toLocaleString('ko-KR')}</td>
           <td>${formatPrice(t.price, currency)}</td>
           <td>${pnlCell}</td>
+          <td class="action-cell">${manageCell}</td>
         </tr>`;
       })
       .join('');
   } catch (err) {
     console.error('거래내역 로딩 실패:', err);
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">불러오지 못했어요.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-text">불러오지 못했어요.</td></tr>';
+  }
+}
+
+/* ---------------------------------------------------------
+   거래내역 수정 / 삭제
+--------------------------------------------------------- */
+function openEditTransactionForm(tx) {
+  const currency = tx.asset_type === 'overseas_stock' ? 'USD' : 'KRW';
+  const displayName = tx.holding_name || tx.symbol;
+  const typeLabel = tx.trade_type === 'buy' ? '매수' : '매도';
+
+  const fieldsHtml = `
+    <div class="form-field">
+      <label>종목</label>
+      <input value="${escapeHtml(displayName)} (${escapeHtml(tx.symbol)}) · ${typeLabel}" disabled>
+    </div>
+    <div class="form-field">
+      <label>수량</label>
+      <input name="quantity" type="number" step="any" min="0" required value="${tx.quantity}">
+    </div>
+    <div class="form-field">
+      <label>단가 (${currency})</label>
+      <input name="price" type="number" step="any" min="0" required value="${tx.price}">
+    </div>
+    <div class="form-field">
+      <label>거래일자</label>
+      <input name="trade_date" type="date" required value="${tx.trade_date}">
+    </div>
+  `;
+
+  openModal(`거래 수정 - ${displayName}`, fieldsHtml, async (formData) => {
+    const payload = Object.fromEntries(formData.entries());
+    payload.quantity = Number(payload.quantity);
+    payload.price = Number(payload.price);
+
+    const res = await fetch(`${API_BASE}/transactions/${tx.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || '거래 수정 중 오류가 발생했습니다.');
+      return;
+    }
+
+    closeModal();
+    refreshAll();
+  });
+}
+
+async function deleteTransaction(id) {
+  if (!confirm('이 거래를 삭제하시겠습니까? 삭제하면 보유수량/평단가가 다시 계산돼요.')) return;
+
+  const res = await fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.error || '거래 삭제 중 오류가 발생했습니다.');
+    return;
+  }
+
+  refreshAll();
+}
+
+/* ---------------------------------------------------------
+   거래내역 화면에서 매도 거래 추가 (매도할 종목 먼저 선택)
+--------------------------------------------------------- */
+async function openSellPicker() {
+  try {
+    const res = await fetch(`${API_BASE}/holdings`);
+    if (!res.ok) throw new Error('holdings API 응답 오류');
+    const holdings = await res.json();
+
+    const sellable = holdings.filter((h) => h.quantity > 0);
+    if (sellable.length === 0) {
+      alert('매도할 수 있는 보유 종목이 없어요.');
+      return;
+    }
+
+    const optionsHtml = sellable
+      .map(
+        (h) =>
+          `<option value="${h.id}">${escapeHtml(h.name)} (${escapeHtml(h.symbol)})${h.institution ? ` · ${escapeHtml(h.institution)}` : ''} · 보유 ${h.quantity.toLocaleString('ko-KR')}</option>`
+      )
+      .join('');
+
+    const fieldsHtml = `
+      <div class="form-field">
+        <label>매도할 종목</label>
+        <select name="holding_id" required>${optionsHtml}</select>
+      </div>
+    `;
+
+    openModal('매도할 종목 선택', fieldsHtml, (formData) => {
+      const holdingId = Number(formData.get('holding_id'));
+      const row = sellable.find((h) => h.id === holdingId);
+      closeModal();
+      if (row) openSellForm(row);
+    });
+  } catch (err) {
+    console.error('보유 종목 로딩 실패:', err);
+    alert('보유 종목을 불러오지 못했어요.');
   }
 }
 
@@ -1548,15 +1668,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('addCashBtn').addEventListener('click', () => openCashForm(null));
   document.getElementById('addRealEstateBtn').addEventListener('click', () => openRealEstateForm(null));
-  document.getElementById('addCryptoBtn').addEventListener('click', () => openHoldingForm(null, 'crypto'));
-  document.getElementById('addStockBtn').addEventListener('click', () => openHoldingForm(null, 'domestic_stock'));
+  document.getElementById('addCryptoBtn').addEventListener('click', openTransactionHistory);
+  document.getElementById('addStockBtn').addEventListener('click', openTransactionHistory);
   document.getElementById('refreshPricesBtn').addEventListener('click', refreshLivePrices);
-  document.getElementById('txHistoryBtn').addEventListener('click', openTransactionHistory);
   document.getElementById('txHistoryCloseBtn').addEventListener('click', closeTransactionHistory);
   document.getElementById('txTypeFilter').addEventListener('change', loadTransactionHistory);
   document.getElementById('txAssetTypeFilter').addEventListener('change', loadTransactionHistory);
+  document.getElementById('addBuyTxBtn').addEventListener('click', () => openHoldingForm(null, 'domestic_stock'));
+  document.getElementById('addSellTxBtn').addEventListener('click', openSellPicker);
   document.getElementById('exportHoldingsBtn').addEventListener('click', exportHoldingsCsv);
- document.getElementById('exportTxHistoryBtn').addEventListener('click', exportTransactionsCsv);
+  document.getElementById('exportTxHistoryBtn').addEventListener('click', exportTransactionsCsv);
 
   setupRefreshResultsToggle();
 

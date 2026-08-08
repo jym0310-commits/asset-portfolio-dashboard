@@ -486,6 +486,11 @@ td .symbol-sub {
   display: none;
 }
 
+/* 거래내역 모달 위에서 입력/수정 폼(#formModal)이 열릴 수 있어서 항상 맨 위에 보이게 합니다. */
+#formModal {
+  z-index: 110;
+}
+
 .modal {
   background: var(--panel);
   border: 1px solid var(--border);

@@ -155,7 +155,7 @@
     <div class="panel">
       <div class="panel-header">
         <p class="panel-title">비트코인 보유 현황</p>
-        <button class="btn btn-sm btn-primary" id="addCryptoBtn">+ 추가</button>
+        <button class="btn btn-sm btn-primary" id="addCryptoBtn">거래 관리</button>
       </div>
       <table id="cryptoTable">
         <thead>
@@ -246,8 +246,7 @@
     <div class="panel-header">
       <p class="panel-title">보유 종목 (주식)</p>
       <button class="btn btn-sm btn-ghost" id="exportHoldingsBtn">CSV 내보내기</button>
-      <button class="btn btn-sm btn-ghost" id="txHistoryBtn">거래내역</button>
-      <button class="btn btn-sm btn-primary" id="addStockBtn">+ 추가</button>
+      <button class="btn btn-sm btn-primary" id="addStockBtn">거래 관리</button>
     </div>
     <table id="holdingsTable">
       <colgroup>
@@ -307,6 +306,8 @@
     <div class="modal modal-wide">
       <div class="modal-header-row">
         <h3>거래내역</h3>
+        <button type="button" class="btn btn-primary btn-sm" id="addBuyTxBtn">+ 매수 추가</button>
+        <button type="button" class="btn btn-primary btn-sm" id="addSellTxBtn">+ 매도 추가</button>
         <button type="button" class="btn btn-ghost btn-sm" id="exportTxHistoryBtn">CSV 내보내기</button>
         <button type="button" class="btn btn-ghost btn-sm" id="txHistoryCloseBtn">닫기</button>
       </div>
@@ -333,10 +334,10 @@
         <table id="txHistoryTable">
           <thead>
             <tr>
-              <th>날짜</th><th>종목</th><th>구분</th><th>수량</th><th>단가</th><th>실현손익</th>
+              <th>날짜</th><th>종목</th><th>구분</th><th>수량</th><th>단가</th><th>실현손익</th><th>관리</th>
             </tr>
           </thead>
-          <tbody><tr><td colspan="6" class="loading-text">불러오는 중...</td></tr></tbody>
+          <tbody><tr><td colspan="7" class="loading-text">불러오는 중...</td></tr></tbody>
         </table>
       </div>
     </div>

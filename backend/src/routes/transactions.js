@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require('../db');
 const { toKRW } = require('../config');
 const { snapshotNetWorth } = require('../services/priceRefreshService');
+const { recalcHolding } = require('../services/holdingRecalcService');
 const { requireAuth } = require('../middleware/requireAuth');
 const { resolveOwner } = require('../middleware/resolveOwner');
 
@@ -37,8 +38,8 @@ router.post('/sell', (req, res) => {
   const realizedPnlKRW = Math.round(toKRW(profitInOriginalCurrency, holding.currency));
 
   const insertTx = db.prepare(
-    `INSERT INTO transactions (user_id, symbol, asset_type, trade_type, quantity, price, realized_pnl, trade_date)
-     VALUES (?, ?, ?, 'sell', ?, ?, ?, ?)`
+    `INSERT INTO transactions (user_id, symbol, asset_type, trade_type, quantity, price, realized_pnl, trade_date, holding_id)
+     VALUES (?, ?, ?, 'sell', ?, ?, ?, ?, ?)`
   );
   const result = insertTx.run(
     req.ownerId,
@@ -47,7 +48,8 @@ router.post('/sell', (req, res) => {
     quantity,
     price,
     realizedPnlKRW,
-    trade_date
+    trade_date,
+    holding.id
   );
 
   const remainingQuantity = holding.quantity - quantity;
@@ -72,10 +74,10 @@ router.get('/', (req, res) => {
   const { symbol, assetType, tradeType } = req.query;
 
   let query = `
-    SELECT t.*, h.name AS holding_name
+    SELECT t.*, h.name AS holding_name, h.institution AS holding_institution
     FROM transactions t
     LEFT JOIN holdings h
-      ON h.symbol = t.symbol AND h.asset_type = t.asset_type AND h.user_id = t.user_id
+      ON h.id = t.holding_id
     WHERE t.user_id = ?
   `;
   const params = [req.ownerId];
@@ -97,6 +99,82 @@ router.get('/', (req, res) => {
 
   const rows = db.prepare(query).all(...params);
   res.json(rows);
+});
+
+// PUT /api/transactions/:id - 거래내역 수정 (수량/단가/거래일자)
+// 수정 후에는 해당 종목의 모든 거래를 날짜순으로 다시 훑어서 보유수량/평단가/실현손익을 재계산합니다.
+router.put('/:id', (req, res) => {
+  const { quantity, price, trade_date } = req.body;
+
+  if (quantity === undefined || price === undefined || !trade_date) {
+    return res.status(400).json({ error: 'quantity, price, trade_date는 필수입니다.' });
+  }
+  if (Number(quantity) <= 0 || Number(price) < 0) {
+    return res.status(400).json({ error: '수량은 0보다 커야 하고, 단가는 0 이상이어야 합니다.' });
+  }
+
+  const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, req.ownerId);
+  if (!tx) {
+    return res.status(404).json({ error: '해당 거래를 찾을 수 없습니다.' });
+  }
+  if (!tx.holding_id) {
+    return res
+      .status(400)
+      .json({ error: '연결된 보유 종목 정보가 없는 거래라 수정할 수 없습니다.' });
+  }
+
+  const runInTransaction = db.transaction(() => {
+    db.prepare('UPDATE transactions SET quantity = ?, price = ?, trade_date = ? WHERE id = ?').run(
+      Number(quantity),
+      Number(price),
+      trade_date,
+      tx.id
+    );
+    recalcHolding(tx.holding_id, req.ownerId);
+  });
+
+  try {
+    runInTransaction();
+  } catch (err) {
+    if (err.message === 'NEGATIVE_QUANTITY') {
+      return res
+        .status(400)
+        .json({ error: '이 수정을 적용하면 보유 수량이 마이너스가 돼요. 값을 다시 확인해주세요.' });
+    }
+    console.error('거래 수정 중 오류:', err);
+    return res.status(500).json({ error: '거래 수정 중 오류가 발생했습니다.' });
+  }
+
+  res.json({ updated: true });
+});
+
+// DELETE /api/transactions/:id - 거래내역 삭제 (삭제 후 보유수량/평단가/실현손익 재계산)
+router.delete('/:id', (req, res) => {
+  const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, req.ownerId);
+  if (!tx) {
+    return res.status(404).json({ error: '해당 거래를 찾을 수 없습니다.' });
+  }
+
+  const runInTransaction = db.transaction(() => {
+    db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
+    if (tx.holding_id) {
+      recalcHolding(tx.holding_id, req.ownerId);
+    }
+  });
+
+  try {
+    runInTransaction();
+  } catch (err) {
+    if (err.message === 'NEGATIVE_QUANTITY') {
+      return res
+        .status(400)
+        .json({ error: '이 거래를 삭제하면 보유 수량이 마이너스가 돼요. 다른 거래를 먼저 확인해주세요.' });
+    }
+    console.error('거래 삭제 중 오류:', err);
+    return res.status(500).json({ error: '거래 삭제 중 오류가 발생했습니다.' });
+  }
+
+  res.json({ deleted: true });
 });
 
 // GET /api/transactions/sell-years - 매도 실현손익 드롭다운용 연도 목록 (내 매도기록이 있는 연도 + 올해)

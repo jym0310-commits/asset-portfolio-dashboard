@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   price REAL NOT NULL,
   realized_pnl REAL,
   trade_date TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  holding_id INTEGER REFERENCES holdings(id) ON DELETE SET NULL
 );
 
 -- 일별 총자산 스냅샷 (자산 성장 추이 차트용, 사용자별로 하루에 하나씩)
