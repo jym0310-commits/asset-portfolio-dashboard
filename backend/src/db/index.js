@@ -75,4 +75,4 @@ function initSchema() {
   console.log('DB 스키마 초기화 완료:', DB_PATH);
 }
 
-module.exports = { db, initSchema };
+module.exports = { db, initSchema, backfillTransactionHoldingIds };

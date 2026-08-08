@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../db');
+const { db, backfillTransactionHoldingIds } = require('../db');
 const { toKRW } = require('../config');
 const { snapshotNetWorth } = require('../services/priceRefreshService');
 const { recalcHolding } = require('../services/holdingRecalcService');
@@ -73,6 +73,10 @@ router.post('/sell', (req, res) => {
 router.get('/', (req, res) => {
   const { symbol, assetType, tradeType } = req.query;
 
+  // 종목 재매수 등으로 새로 보유종목이 생겼을 수 있으니, 조회할 때마다
+  // 아직 연결 안 된 예전 거래내역들을 다시 한번 자동 연결 시도합니다.
+  backfillTransactionHoldingIds();
+
   let query = `
     SELECT t.*, h.name AS holding_name, h.institution AS holding_institution
     FROM transactions t
@@ -117,12 +121,10 @@ router.put('/:id', (req, res) => {
   if (!tx) {
     return res.status(404).json({ error: '해당 거래를 찾을 수 없습니다.' });
   }
-  if (!tx.holding_id) {
-    return res
-      .status(400)
-      .json({ error: '연결된 보유 종목 정보가 없는 거래라 수정할 수 없습니다.' });
-  }
 
+  // 연결된 보유 종목이 있으면(=holding_id 있음) 수정 후 그 종목의 보유수량/평단가를
+  // 재계산합니다. 연결된 보유 종목이 없는 예전 거래(종목이 이미 완전히 정리된 경우)는
+  // 재계산할 대상이 없으니 거래 값만 수정합니다.
   const runInTransaction = db.transaction(() => {
     db.prepare('UPDATE transactions SET quantity = ?, price = ?, trade_date = ? WHERE id = ?').run(
       Number(quantity),
@@ -130,7 +132,9 @@ router.put('/:id', (req, res) => {
       trade_date,
       tx.id
     );
-    recalcHolding(tx.holding_id, req.ownerId);
+    if (tx.holding_id) {
+      recalcHolding(tx.holding_id, req.ownerId);
+    }
   });
 
   try {

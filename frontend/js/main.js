@@ -1439,10 +1439,10 @@ async function loadTransactionHistory() {
           t.trade_type === 'sell' && t.realized_pnl !== null
             ? `<span class="${t.realized_pnl >= 0 ? 'value-up' : 'value-down'}">${t.realized_pnl >= 0 ? '+' : ''}${formatKRW(t.realized_pnl)}원</span>`
             : '-';
-        const manageCell = t.holding_id
-          ? `<button class="btn btn-sm btn-edit" onclick="openEditTransactionForm(txRowCache[${t.id}])">수정</button>
-             <button class="btn btn-sm btn-danger" onclick="deleteTransaction(${t.id})">삭제</button>`
-          : '-';
+        // 연결된 보유 종목이 없는 예전 거래도 이제는 수정/삭제가 가능합니다
+        // (수정 시 보유수량 재계산은 연결된 종목이 있을 때만 자동으로 이루어집니다).
+        const manageCell = `<button class="btn btn-sm btn-edit" onclick="openEditTransactionForm(txRowCache[${t.id}])">수정</button>
+             <button class="btn btn-sm btn-danger" onclick="deleteTransaction(${t.id})">삭제</button>`;
 
         return `<tr>
           <td>${t.trade_date}</td>
